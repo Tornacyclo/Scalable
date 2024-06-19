@@ -1,16 +1,42 @@
 cmake_minimum_required(VERSION 3.12...3.26)
 
-project(ultimaille-examples LANGUAGES C CXX)
+project( playground LANGUAGES C CXX )
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(SLIM_intern SLIM_intern.cpp)
+get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(NOT is_multi_config AND NOT (CMAKE_BUILD_TYPE OR DEFINED ENV{CMAKE_BUILD_TYPE}))
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Release default")
+endif()
 
-target_link_libraries(SLIM_intern ${CMAKE_DL_LIBS} ultimaille $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>)
+find_package(OpenMP COMPONENTS CXX)
 
-IF (NOT WIN32)
-    target_link_libraries(SLIM_intern m)
-ENDIF()
+if (MSVC)
+    # warning level 4 (and all warnings as errors, /WX)
+    add_compile_options(/W4)
+else()
+    # lots of warnings and all warnings as errors
+    add_compile_options(-Wall -Wextra -pedantic)
+endif()
 
-# Copy asset files to build directory
-file(COPY mesh_test DESTINATION .)
+# Clone Ultimaille
+include(FetchContent)
+FetchContent_Declare(
+  ultimaille
+  GIT_REPOSITORY https://github.com/ssloy/ultimaille
+  GIT_TAG        v1.0.0
+)
+FetchContent_MakeAvailable(ultimaille)
+include_directories(${ultimaille_SOURCE_DIR})
+
+# Download Graphite
+file(DOWNLOAD https://github.com/BrunoLevy/GraphiteThree/releases/download/v3-1.8.4/graphite3-1.8.5-rc-win64.zip ${CMAKE_SOURCE_DIR}/graphite.zip)
+# Unzip Graphite
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -E tar xzf ${CMAKE_SOURCE_DIR}/graphite.zip
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+file(REMOVE_RECURSE ${CMAKE_SOURCE_DIR}/graphite.zip)
+
+add_subdirectory(src)
