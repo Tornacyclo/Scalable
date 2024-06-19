@@ -12,6 +12,28 @@
 #include <stdlib.h>
 #include <string>
 
+#include <iostream>
+#include <thread>
+#include <chrono>
+
+
+
+#ifdef linux
+	#define DBOUT( s )\
+	{\
+	std::cout << s;\
+	}
+#endif
+
+#ifdef _WIN32
+	#define DBOUT( s )\
+	{\
+	   std::ostringstream os_;\
+	   os_ << s;\
+	   OutputDebugString( os_.str().c_str() );\
+	}
+#endif
+
 
 using namespace UM;
 

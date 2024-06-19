@@ -39,4 +39,4 @@ execute_process(
 
 file(REMOVE_RECURSE ${CMAKE_SOURCE_DIR}/graphite.zip)
 
-add_subdirectory(src)
+add_subdirectory(project)

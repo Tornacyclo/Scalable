@@ -1,20 +1,3 @@
-#ifdef linux
-	#define DBOUT( s )\
-	{\
-	std::cout << s;\
-	}
-#endif
-
-#ifdef _WIN32
-	#define DBOUT( s )\
-	{\
-	   std::ostringstream os_;\
-	   os_ << s;\
-	   OutputDebugString( os_.str().c_str() );\
-	}
-#endif
-
-
 /**
  * Scalable Locally Injective Mappings
 */
@@ -367,17 +350,39 @@ Triangles TrianglesMapping::LocalGlobalParametrization(Triangles map) {
 	return map;
 }
 
+void updateProgressBar(int progress) {
+    const int barWidth = 50; // Width of the progress bar in characters
 
+    std::cout << "[";
+    int pos = barWidth * progress / 100;
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << progress << " %\r";
+    std::cout.flush(); // Important to ensure the output is updated immediately
+}
 
 int main(int argc, char** argv) {
 
-    
+    auto start = std::chrono::high_resolution_clock::now();
     TrianglesMapping Init(argc, argv);
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	std::cout << "Time taken: " << duration << " milliseconds" << std::endl;
     auto map = Init.getUltiMap();
 	Init.LocalGlobalParametrization(map);
+
+
+	for (int progress = 0; progress <= 100; ++progress) {
+        updateProgressBar(progress);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    std::cout << std::endl;
     
     
-    for (auto f : map.iter_facets()) {
+    /*for (auto f : map.iter_facets()) {
 		
 	// Ji=[D1*u,D2*u,D1*v,D2*v];
 	int ind = 0;
@@ -394,7 +399,7 @@ int main(int argc, char** argv) {
 	Ji(i,3) = a_y_k * uv(col1,1) + a_y_k_1 * uv(col2,1) + a_y_k_2 * uv(col3,1); // Dy*v
 
 	ind +=3;
-    }
+    }*/
     
     
     
