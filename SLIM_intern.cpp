@@ -378,7 +378,7 @@ int main(int argc, char** argv) {
     
     
     for (auto f : map.iter_facets()) {
-
+		
 	// Ji=[D1*u,D2*u,D1*v,D2*v];
 	int ind = 0;
 	for (int i = 0; i < f_n; i++) {
@@ -393,7 +393,7 @@ int main(int argc, char** argv) {
 	Ji(i,1) = a_y_k * uv(col1,0) + a_y_k_1 * uv(col2,0) + a_y_k_2 * uv(col3,0); // Dy*u
 	Ji(i,3) = a_y_k * uv(col1,1) + a_y_k_1 * uv(col2,1) + a_y_k_2 * uv(col3,1); // Dy*v
 
-	ind +=3;//
+	ind +=3;
     }
     
     

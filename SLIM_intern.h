@@ -26,6 +26,8 @@ public:
     const char* getOutput() const;
     Triangles LocalGlobalParametrization(Triangles map);
 
+    Eigen::MatrixXd Ri,Ji;
+
 private:
     Triangles mOri;
     Triangles mTut;
