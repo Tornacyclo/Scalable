@@ -41,8 +41,31 @@ double TrianglesMapping::calculateCotan(const vec3& v0, const vec3& v1, const ve
     return cotan;
 }
 
+void TrianglesMapping::jacobians(Triangles& map) {
+	for (auto f : map.iter_facets()) {
+		Eigen::Matrix2d J_i;
+		J_i(0, 0) = f.vertex(1).pos()[0] - f.vertex(0).pos()[0];
+		J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
+		J_i(1, 0) = f.vertex(1).pos()[2] - f.vertex(0).pos()[2];
+		J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
+		Jac.push_back(J_i);
+
+		// Compute SVD of J_i
+		Eigen::JacobiSVD<Eigen::Matrix2d> svd(J_i, Eigen::ComputeFullU | Eigen::ComputeFullV);
+		Eigen::Matrix2d U = svd.matrixU();
+		Eigen::Matrix2d V = svd.matrixV();
+
+		// Construct the closest rotation matrix R_i
+		Eigen::Matrix2d R_i = U * V.transpose();
+
+		// Step 4: Store R_i in the vector
+		Rot.push_back(R_i);
+		
+	}
+}
+
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
-	const char* name; int weights;
+	const char* name; int weights = -1;
 	if (acount > 1) {
 		for (int i = 1; i < acount; ++i) {
 			if (strlen(avariable[i]) == 1) {
@@ -54,13 +77,16 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         	}
 	}
 	
-	else {
+	if (strlen(name) == 0) {
 		#ifdef _WIN32
 		name = "mesh_test/hemisphere.obj";
 		#endif
 		#ifdef linux
-		name = "examples/mesh_test/hemisphere.obj";
+		name = "project/mesh_test/hemisphere.obj";
 		#endif
+	}
+
+	if (weights == -1) {
 		weights = 1;
 	}
 	
@@ -77,21 +103,17 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	char attribute[20] = "_distortion";
 	
 	
-	if (weights == 0) {
 	strcpy(output_name, stem);
 	strcat(output_name, method);
+	if (weights == 1) {
 	strcat(output_name, weight1);
-	strcat(output_name, attribute);
-	strcat(output_name, ext2);
 	}
-	else if (weights == 1) {
-	strcpy(output_name, stem);
-	strcat(output_name, method);
+	else if (weights == 2) {
 	strcat(output_name, weight2);
+	}
 	strcat(output_name, attribute);
 	strcat(output_name, ext2);
-	}
-	
+
 	read_by_extension(name, mTut);
 	read_by_extension(name, mOri);
 	double maxH = mTut.points[0][1];
@@ -178,7 +200,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 		Surface::Halfedge variable = depart;
 		double count = 0;
 		std::vector<int> neighbors;
-		if (weights == 0) {
+		if (weights == 1) {
 		    std::map<int, double> cotan;
 		    if (depart.opposite().active())
 			variable = variable.opposite().next();
@@ -221,7 +243,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 		    
 	    }
 	    
-		else if (weights == 1) {
+		else if (weights == 2) {
 		    std::map<int, double> cotan;
 		    if (depart.opposite().active())
 			variable = variable.opposite().next();
@@ -346,7 +368,8 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 }
 
 Triangles TrianglesMapping::LocalGlobalParametrization(Triangles map) {
-	map.connect();
+	jacobians(map);
+
 	return map;
 }
 
@@ -380,23 +403,20 @@ int main(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     std::cout << std::endl;
-    
-    
-    /*for (auto f : map.iter_facets()) {
-		
-	// Ji=[D1*u,D2*u,D1*v,D2*v];
-	int ind = 0;
+
+	// J_i=[D1*u,D2*u,D1*v,D2*v];
+	/*int ind = 0;
 	for (int i = 0; i < f_n; i++) {
-	const int col1 = dxj[ind]-1; const int col2 = dxj[ind+1]-1; const int col3 = dxj[ind+2]-1;
+	const int col1 = dx_j[ind]-1; const int col2 = dx_j[ind+1]-1; const int col3 = dx_j[ind+2]-1;
 
 	const double a_x_k = a_x(ind); const double a_x_k_1 = a_x(ind+1); const double a_x_k_2 = a_x(ind+2);
 
-	Ji(i,0) = a_x_k * uv(col1,0) +  a_x_k_1 * uv(col2,0) +  a_x_k_2* uv(col3,0); // Dx*u
-	Ji(i,2) = a_x_k * uv(col1,1) +  a_x_k_1 * uv(col2,1) + a_x_k_2 * uv(col3,1); // Dx*v
+	J_i(i,0) = a_x_k * uv(col1,0) +  a_x_k_1 * uv(col2,0) +  a_x_k_2* uv(col3,0); // Dx*u
+	J_i(i,2) = a_x_k * uv(col1,1) +  a_x_k_1 * uv(col2,1) + a_x_k_2 * uv(col3,1); // Dx*v
 
 	const double a_y_k = a_y(ind); const double a_y_k_1 = a_y(ind+1); const double a_y_k_2 = a_y(ind+2);
-	Ji(i,1) = a_y_k * uv(col1,0) + a_y_k_1 * uv(col2,0) + a_y_k_2 * uv(col3,0); // Dy*u
-	Ji(i,3) = a_y_k * uv(col1,1) + a_y_k_1 * uv(col2,1) + a_y_k_2 * uv(col3,1); // Dy*v
+	J_i(i,1) = a_y_k * uv(col1,0) + a_y_k_1 * uv(col2,0) + a_y_k_2 * uv(col3,0); // Dy*u
+	J_i(i,3) = a_y_k * uv(col1,1) + a_y_k_1 * uv(col2,1) + a_y_k_2 * uv(col3,1); // Dy*v
 
 	ind +=3;
     }*/

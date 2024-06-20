@@ -48,7 +48,7 @@ public:
     const char* getOutput() const;
     Triangles LocalGlobalParametrization(Triangles map);
 
-    Eigen::MatrixXd Ri,Ji;
+    std::vector<Eigen::Matrix2d> Rot, Jac;
 
 private:
     Triangles mOri;
@@ -56,12 +56,12 @@ private:
     Eigen::MatrixXf EigenMap;
     char output_name[65];
 
-    Eigen::VectorXi dxi,dxj;
+    Eigen::VectorXi dx_i, dx_j;
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
     void Tut63(const int acount, char** avariable);
-    void jacobians(const Triangles& map);
+    void jacobians(Triangles& map);
 };
 
 
