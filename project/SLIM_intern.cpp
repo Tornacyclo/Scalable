@@ -565,7 +565,44 @@ int main() {
 
     // Output the result
     cout << "The new solution is:\n" << xk << endl;
-    cout << "Step size alpha: " << alpha << endl;*//////////////////////
+    cout << "Step size alpha: " << alpha << endl;
+	
+	using namespace Eigen;
+using namespace std;
+
+// Function to retrieve the (x, y) coordinates from the solution vector
+vector<pair<double, double>> getCoordinates(const VectorXd& x) {
+    int n = x.size() / 2;
+    vector<pair<double, double>> coordinates(n);
+
+    for (int i = 0; i < n; ++i) {
+        double xCoord = x(i);
+        double yCoord = x(i + n);
+        coordinates[i] = make_pair(xCoord, yCoord);
+    }
+
+    return coordinates;
+}
+
+int main() {
+    // Example dimension (number of vertices)
+    const int n = 4;
+
+    // Example solution vector x of dimension 2n
+    VectorXd x(2 * n);
+    x << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0;  // Replace with your actual solution vector
+
+    // Retrieve the (x, y) coordinates
+    vector<pair<double, double>> coordinates = getCoordinates(x);
+
+    // Output the coordinates
+    cout << "Coordinates of the vertices:" << endl;
+    for (int i = 0; i < n; ++i) {
+        cout << "Vertex " << i + 1 << ": (" << coordinates[i].first << ", " << coordinates[i].second << ")" << endl;
+    }
+
+    return 0;
+}*//////////////////////
 
 
 	/*void map_vertices_to_circle_area_normalized(
