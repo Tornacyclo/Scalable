@@ -6,20 +6,13 @@
 
 
 
-TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
+TrianglesMapping::TrianglesMapping(const int acount, char** avariable, const char* distortion) {
     Tut63(acount, avariable);
-}
-
-Triangles TrianglesMapping::getUltiMap() const {
-    return mTut;
+	strcpy(energy, distortion);
 }
 
 Eigen::MatrixXf TrianglesMapping::getEigenMap() const {
 	return EigenMap;
-}
-
-Triangles TrianglesMapping::getOriginal() const {
-    return mOri;
 }
 
 const char* TrianglesMapping::getOutput() const {
@@ -60,12 +53,34 @@ void TrianglesMapping::jacobians(Triangles& map) {
 
 		// Step 4: Store R_i in the vector
 		Rot.push_back(R_i);
-		
 	}
 }
 
+void TrianglesMapping::update_weights() {
+	Wei.clear();
+	if (strcmp(energy, "arap") == 0) {
+		for (size_t i = 0; i < Rot.size(); ++i) {
+			Wei.push_back(Eigen::Matrix2d::Identity());
+		}
+	}
+	else if (strcmp(energy, "symm_dirichlet") == 0) {
+		//
+	}
+	else if (strcmp(energy, "dmitry") == 0) {
+		//
+	}
+}
+
+void least_squares(const Eigen::MatrixXf& A, const Eigen::MatrixXf& b) {
+	Eigen::MatrixXf At = A.transpose();
+	Eigen::MatrixXf AtA = At * A;
+	Eigen::MatrixXf AtB = At * B;
+	Eigen::MatrixXf X = AtA.colPivHouseholderQr().solve(AtB);
+	
+}
+
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
-	const char* name; int weights = -1;
+	const char* name = nullptr; int weights = -1;
 	if (acount > 1) {
 		for (int i = 1; i < acount; ++i) {
 			if (strlen(avariable[i]) == 1) {
@@ -77,7 +92,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         	}
 	}
 	
-	if (strlen(name) == 0) {
+	if (name == nullptr) {
 		#ifdef _WIN32
 		name = "mesh_test/hemisphere.obj";
 		#endif
@@ -367,10 +382,8 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	#endif
 }
 
-Triangles TrianglesMapping::LocalGlobalParametrization(Triangles map) {
+void TrianglesMapping::LocalGlobalParametrization(Triangles& map) {
 	jacobians(map);
-
-	return map;
 }
 
 void updateProgressBar(int progress) {
@@ -390,11 +403,13 @@ void updateProgressBar(int progress) {
 int main(int argc, char** argv) {
 
     auto start = std::chrono::high_resolution_clock::now();
-    TrianglesMapping Init(argc, argv);
+    TrianglesMapping Init(argc, argv, "arap");
 	auto end = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	std::cout << "Time taken: " << duration << " milliseconds" << std::endl;
-    auto map = Init.getUltiMap();
+    
+	Triangles map;
+	read_by_extension(Init.getOutput(), map);
 	Init.LocalGlobalParametrization(map);
 
 
@@ -404,22 +419,89 @@ int main(int argc, char** argv) {
     }
     std::cout << std::endl;
 
-	// J_i=[D1*u,D2*u,D1*v,D2*v];
-	/*int ind = 0;
-	for (int i = 0; i < f_n; i++) {
-	const int col1 = dx_j[ind]-1; const int col2 = dx_j[ind+1]-1; const int col3 = dx_j[ind+2]-1;
+	/*void map_vertices_to_circle_area_normalized(
+	const Eigen::MatrixXd& V,
+	const Eigen::MatrixXi& F,
+	const Eigen::VectorXi& bnd,
+	Eigen::MatrixXd& UV) {
+	
+	Eigen::VectorXd dblArea_orig; // TODO: remove me later, waste of computations
+	igl::doublearea(V,F, dblArea_orig);
+	double area = dblArea_orig.sum()/2;
+	double radius = sqrt(area / (M_PI));
+	cout << "map_vertices_to_circle_area_normalized, area = " << area << " radius = " << radius << endl;
 
-	const double a_x_k = a_x(ind); const double a_x_k_1 = a_x(ind+1); const double a_x_k_2 = a_x(ind+2);
+	// Get sorted list of boundary vertices
+	std::vector<int> interior,map_ij;
+	map_ij.resize(V.rows());
+	interior.reserve(V.rows()-bnd.size());
 
-	J_i(i,0) = a_x_k * uv(col1,0) +  a_x_k_1 * uv(col2,0) +  a_x_k_2* uv(col3,0); // Dx*u
-	J_i(i,2) = a_x_k * uv(col1,1) +  a_x_k_1 * uv(col2,1) + a_x_k_2 * uv(col3,1); // Dx*v
+	std::vector<bool> isOnBnd(V.rows(),false);
+	for (int i = 0; i < bnd.size(); i++)
+	{
+		isOnBnd[bnd[i]] = true;
+		map_ij[bnd[i]] = i;
+	}
 
-	const double a_y_k = a_y(ind); const double a_y_k_1 = a_y(ind+1); const double a_y_k_2 = a_y(ind+2);
-	J_i(i,1) = a_y_k * uv(col1,0) + a_y_k_1 * uv(col2,0) + a_y_k_2 * uv(col3,0); // Dy*u
-	J_i(i,3) = a_y_k * uv(col1,1) + a_y_k_1 * uv(col2,1) + a_y_k_2 * uv(col3,1); // Dy*v
+	for (int i = 0; i < (int)isOnBnd.size(); i++)
+	{
+		if (!isOnBnd[i])
+		{
+		map_ij[i] = interior.size();
+		interior.push_back(i);
+		}
+	}
 
-	ind +=3;
-    }*/
+	// Map boundary to unit circle
+	std::vector<double> len(bnd.size());
+	len[0] = 0.;
+
+	for (int i = 1; i < bnd.size(); i++)
+	{
+		len[i] = len[i-1] + (V.row(bnd[i-1]) - V.row(bnd[i])).norm();
+	}
+	double total_len = len[len.size()-1] + (V.row(bnd[0]) - V.row(bnd[bnd.size()-1])).norm();
+
+	UV.resize(bnd.size(),2);
+	for (int i = 0; i < bnd.size(); i++)
+	{
+		double frac = len[i] * (2. * M_PI) / total_len;
+		UV.row(map_ij[bnd[i]]) << radius*cos(frac), radius*sin(frac);
+	}
+
+	}
+
+	void get_flips(const Eigen::MatrixXd& V,
+				const Eigen::MatrixXi& F,
+				const Eigen::MatrixXd& uv,
+				std::vector<int>& flip_idx) {
+	flip_idx.resize(0);
+	for (int i = 0; i < F.rows(); i++) {
+
+		Eigen::Vector2d v1_n = uv.row(F(i,0)); Eigen::Vector2d v2_n = uv.row(F(i,1)); Eigen::Vector2d v3_n = uv.row(F(i,2));
+
+		Eigen::MatrixXd T2_Homo(3,3);
+		T2_Homo.col(0) << v1_n(0),v1_n(1),1;
+		T2_Homo.col(1) << v2_n(0),v2_n(1),1;
+		T2_Homo.col(2) << v3_n(0),v3_n(1),1;
+		double det = T2_Homo.determinant();
+		assert (det == det);
+		if (det < 0) {
+		//cout << "flip at face #" << i << " det = " << T2_Homo.determinant() << endl;
+		flip_idx.push_back(i);
+		}
+	}
+	}
+	int count_flips(const Eigen::MatrixXd& V,
+				const Eigen::MatrixXi& F,
+				const Eigen::MatrixXd& uv) {
+
+	std::vector<int> flip_idx;
+	get_flips(V,F,uv,flip_idx);
+
+	
+	return flip_idx.size();
+	}*/
     
     
     

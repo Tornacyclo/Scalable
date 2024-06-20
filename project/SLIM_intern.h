@@ -42,19 +42,19 @@ class TrianglesMapping {
 public:
     TrianglesMapping(const int acount, char** avariable);
 
-    Triangles getUltiMap() const;
     Eigen::MatrixXf getEigenMap() const;
-    Triangles getOriginal() const;
     const char* getOutput() const;
-    Triangles LocalGlobalParametrization(Triangles map);
+    void LocalGlobalParametrization(Triangles& map);
 
-    std::vector<Eigen::Matrix2d> Rot, Jac;
+    std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
 
 private:
     Triangles mOri;
     Triangles mTut;
+    Triangles mLocGlo;
     Eigen::MatrixXf EigenMap;
     char output_name[65];
+    char energy[65];
 
     Eigen::VectorXi dx_i, dx_j;
 
@@ -62,6 +62,7 @@ private:
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
     void Tut63(const int acount, char** avariable);
     void jacobians(Triangles& map);
+    void update_weights();
 };
 
 
