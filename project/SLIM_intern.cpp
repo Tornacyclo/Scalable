@@ -77,6 +77,7 @@ void least_squares(const Eigen::MatrixXf& A, const Eigen::MatrixXf& b) {
 	Eigen::MatrixXf AtB = At * B;
 	Eigen::MatrixXf X = AtA.colPivHouseholderQr().solve(AtB);
 	
+
 }
 
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
@@ -418,6 +419,154 @@ int main(int argc, char** argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     std::cout << std::endl;
+
+
+	/*using namespace Eigen;
+
+    // Define the dimensions of the problem
+    const int n = 4;  // Number of elements, adjust as needed
+
+    // Define the matrices Dx and Dy (FE gradient matrices) - These should be defined based on your specific mesh
+    MatrixXd Dx(n, n);
+    MatrixXd Dy(n, n);
+
+    // Example initialization (replace with actual Dx and Dy)
+    Dx.setIdentity();
+    Dy.setIdentity();
+
+    // Define the diagonal matrices Wij
+    VectorXd W11(n);
+    VectorXd W12(n);
+    VectorXd W21(n);
+    VectorXd W22(n);
+
+    // Example initialization (replace with actual values)
+    W11.setOnes();
+    W12.setOnes();
+    W21.setOnes();
+    W22.setOnes();
+
+    // Create the diagonal matrices
+    MatrixXd W11_diag = W11.asDiagonal();
+    MatrixXd W12_diag = W12.asDiagonal();
+    MatrixXd W21_diag = W21.asDiagonal();
+    MatrixXd W22_diag = W22.asDiagonal();
+
+    // Define matrix A
+    MatrixXd A(4 * n, 2 * n);
+    A << W11_diag * Dx, W12_diag * Dx,
+         W21_diag * Dy, W22_diag * Dy,
+         W11_diag * Dx, W12_diag * Dy,
+         W21_diag * Dy, W22_diag * Dy;
+
+    // Define vector b
+    VectorXd R11(n);
+    VectorXd R12(n);
+    VectorXd R21(n);
+    VectorXd R22(n);
+
+    // Example initialization (replace with actual values)
+    R11 << 1, 2, 3, 4;
+    R12 << 1, 2, 3, 4;
+    R21 << 1, 2, 3, 4;
+    R22 << 1, 2, 3, 4;
+
+    VectorXd b(4 * n);
+    b << R11, R21, R12, R22;
+
+    // Solve the least squares problem
+    VectorXd x = A.bdcSvd(ComputeThinU | ComputeThinV).solve(b);
+
+    // Output the result
+    std::cout << "The solution is:\n" << x << std::endl;
+
+
+	using namespace Eigen;
+using namespace std;
+
+// Function to compute the value of the objective function
+double objectiveFunction(const VectorXd& x) {
+    // Define your objective function here
+    return x.squaredNorm();  // Example: simple quadratic function
+}
+
+// Function to compute the gradient of the objective function
+VectorXd gradientFunction(const VectorXd& x) {
+    // Define your gradient computation here
+    return 2 * x;  // Example: gradient of simple quadratic function
+}
+
+// Line search using Wolfe conditions
+double lineSearch(const VectorXd& xk, const VectorXd& dk, function<double(const VectorXd&)> objFunc, function<VectorXd(const VectorXd&)> gradFunc) {
+    double alpha = 1.0;
+    double c1 = 1e-4;
+    double c2 = 0.9;
+    double alphaMax = 1.0;
+
+    VectorXd pk = xk + alpha * dk;
+
+    // Wolfe conditions
+    auto wolfe1 = [&]() {
+        return objFunc(pk) <= objFunc(xk) + c1 * alpha * gradFunc(xk).dot(dk);
+    };
+
+    auto wolfe2 = [&]() {
+        return gradFunc(pk).dot(dk) >= c2 * gradFunc(xk).dot(dk);
+    };
+
+    // Initial check
+    if (wolfe1() && wolfe2()) {
+        return alpha;
+    }
+
+    // Bisection line search
+    double alphaLow = 0.0;
+    double alphaHigh = alphaMax;
+
+    while (alphaHigh - alphaLow > 1e-8) {
+        alpha = (alphaLow + alphaHigh) / 2.0;
+        pk = xk + alpha * dk;
+
+        if (!wolfe1()) {
+            alphaHigh = alpha;
+        } else if (!wolfe2()) {
+            alphaLow = alpha;
+        } else {
+            break;
+        }
+    }
+
+    return alpha;
+}
+
+int main() {
+    // Define the dimensions of the problem
+    const int n = 4;  // Number of elements, adjust as needed
+
+    // Initial guess xk-1 (example initialization)
+    VectorXd xk_1 = VectorXd::Random(2 * n);
+
+    // Example values for A, b, and lambda
+    MatrixXd A = MatrixXd::Random(4 * n, 2 * n);
+    VectorXd b = VectorXd::Random(4 * n);
+    double lambda = 0.1;
+
+    // Solve for pk (argmin problem)
+    VectorXd pk = (A.transpose() * A + lambda * MatrixXd::Identity(2 * n, 2 * n)).ldlt().solve(A.transpose() * b + lambda * xk_1);
+
+    // Compute the search direction dk
+    VectorXd dk = pk - xk_1;
+
+    // Perform line search to find step size alpha
+    double alpha = lineSearch(xk_1, dk, objectiveFunction, gradientFunction);
+
+    // Update the solution xk
+    VectorXd xk = xk_1 + alpha * dk;
+
+    // Output the result
+    cout << "The new solution is:\n" << xk << endl;
+    cout << "Step size alpha: " << alpha << endl;*//////////////////////
+
 
 	/*void map_vertices_to_circle_area_normalized(
 	const Eigen::MatrixXd& V,
