@@ -47,6 +47,7 @@ public:
     void LocalGlobalParametrization(Triangles& map);
 
     std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
+    Eigen::MatrixXd Dx, Dy;
 
 private:
     Triangles mOri;
@@ -56,11 +57,12 @@ private:
     char output_name[65];
     char energy[65];
 
-    Eigen::VectorXi dx_i, dx_j;
+    Eigen::VectorXi dx_i, dx_j;////////////////////////
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
     void Tut63(const int acount, char** avariable);
+    std::pair<Eigen::Vector3d, Eigen::Vector3d> TrianglesMapping::compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
     void jacobians(Triangles& map);
     void update_weights();
 };
