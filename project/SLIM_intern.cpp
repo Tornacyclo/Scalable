@@ -71,6 +71,90 @@ void TrianglesMapping::update_weights() {
 	}
 }
 
+void TrianglesMapping::gradients() {
+	#include <iostream>
+	#include <Eigen/Dense>
+	#include <vector>
+
+	using namespace Eigen;
+	using namespace std;
+
+	// Function to compute gradients for a single triangle
+	pair<Vector3d, Vector3d> compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3) {
+		double A = 0.5 * fabs(u1 * v2 + u2 * v3 + u3 * v1 - u1 * v3 - u2 * v1 - u3 * v2);
+		Vector3d dudN, dvdN;
+		dudN << (v2 - v3) / (2 * A), (v3 - v1) / (2 * A), (v1 - v2) / (2 * A);
+		dvdN << (u3 - u2) / (2 * A), (u1 - u3) / (2 * A), (u2 - u1) / (2 * A);
+		return make_pair(dudN, dvdN);
+	}
+
+	int main() {
+		// Example mesh data
+		MatrixXd vertices(4, 2);
+		vertices << 0, 0,
+					1, 0,
+					0, 1,
+					1, 1;
+		
+		MatrixXi triangles(2, 3);
+		triangles << 0, 1, 2,
+					1, 3, 2;
+
+		int num_vertices = vertices.rows();
+		int num_triangles = triangles.rows();
+
+		// Initialize gradient matrices
+		MatrixXd Dx = MatrixXd::Zero(num_triangles, num_vertices);
+		MatrixXd Dy = MatrixXd::Zero(num_triangles, num_vertices);
+
+		// Compute the gradients for each triangle and populate Dx and Dy
+		for (int i = 0; i < num_triangles; ++i) {
+			Vector3i tri = triangles.row(i);
+			double u1 = vertices(tri(0), 0), v1 = vertices(tri(0), 1);
+			double u2 = vertices(tri(1), 0), v2 = vertices(tri(1), 1);
+			double u3 = vertices(tri(2), 0), v3 = vertices(tri(2), 1);
+			auto gradients = compute_gradients(u1, v1, u2, v2, u3, v3);
+			Vector3d dudN = gradients.first;
+			Vector3d dvdN = gradients.second;
+			for (int j = 0; j < 3; ++j) {
+				Dx(i, tri(j)) = dudN(j);
+				Dy(i, tri(j)) = dvdN(j);
+			}
+		}
+
+		// Define weights (example)
+		MatrixXd W11 = MatrixXd::Identity(num_triangles, num_triangles);
+		MatrixXd W12 = MatrixXd::Zero(num_triangles, num_triangles);
+		MatrixXd W21 = MatrixXd::Zero(num_triangles, num_triangles);
+		MatrixXd W22 = MatrixXd::Identity(num_triangles, num_triangles);
+
+		// Define R (example)
+		VectorXd R11(num_triangles), R21(num_triangles), R12(num_triangles), R22(num_triangles);
+		R11 << 1, 0;
+		R21 << 0, 1;
+		R12 << 0, 0;
+		R22 << 1, 1;
+
+		// Form A and b matrices
+		MatrixXd A(4 * num_triangles, 2 * num_vertices);
+		A << W11 * Dx, W12 * Dx,
+			W21 * Dy, W22 * Dy,
+			W11 * Dy, W12 * Dy,
+			W21 * Dx, W22 * Dx;
+		
+		VectorXd b(4 * num_triangles);
+		b << R11, R21, R12, R22;
+
+		// Solve using least squares
+		VectorXd x = A.colPivHouseholderQr().solve(b);
+
+		cout << "Solution x:" << endl << x << endl;
+
+		return 0;
+	}
+
+}
+
 void least_squares(const Eigen::MatrixXf& A, const Eigen::MatrixXf& b) {
 	Eigen::MatrixXf At = A.transpose();
 	Eigen::MatrixXf AtA = At * A;
