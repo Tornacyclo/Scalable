@@ -224,6 +224,9 @@ void TrianglesMapping::nextStep() {
 	// Output the result
 	std::cout << "The new solution is:\n" << xk << std::endl;
 	std::cout << "Step size alpha: " << alpha << std::endl;
+
+
+	for (auto f : mLocGlo.iter_vertices()) {}
 }
 
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
@@ -530,10 +533,13 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 }
 
 void TrianglesMapping::LocalGlobalParametrization(Triangles& map) {
-	jacobian_rotation_area(map);
-	update_weights();
-	least_squares();
-	nextStep();
+	mLocGlo = map;
+	for (int i = 0; i < max_iterations; ++i) {
+    jacobian_rotation_area(mLocGlo);
+    update_weights();
+    least_squares();
+    nextStep();
+	}
 }
 
 void updateProgressBar(int progress) {

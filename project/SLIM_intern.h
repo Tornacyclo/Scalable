@@ -72,6 +72,7 @@ private:
     Eigen::MatrixXd EigenMap;
     char output_name[65];
     char energy[65] = "arap";
+    int max_iterations = 100;
 
     int num_vertices;
 	int num_triangles;
