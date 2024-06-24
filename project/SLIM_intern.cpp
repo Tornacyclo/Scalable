@@ -533,6 +533,7 @@ void TrianglesMapping::LocalGlobalParametrization(Triangles& map) {
 	jacobian_rotation_area(map);
 	update_weights();
 	least_squares();
+	nextStep();
 }
 
 void updateProgressBar(int progress) {
