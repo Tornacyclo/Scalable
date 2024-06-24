@@ -6,12 +6,12 @@
 
 
 
-TrianglesMapping::TrianglesMapping(const int acount, char** avariable, const char* distortion) {
+TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
     Tut63(acount, avariable);
-	strcpy(energy, distortion);
+	// strcpy(energy, distortion);
 }
 
-Eigen::MatrixXf TrianglesMapping::getEigenMap() const {
+Eigen::MatrixXd TrianglesMapping::getEigenMap() const {
 	return EigenMap;
 }
 
@@ -42,12 +42,15 @@ std::pair<Eigen::Vector3d, Eigen::Vector3d> TrianglesMapping::compute_gradients(
 		return std::make_pair(dudN, dvdN);
 }
 
-void TrianglesMapping::jacobians(Triangles& map) {
-	int num_vertices = map.nverts();
-	int num_triangles = map.nfacets();
-	Eigen::MatrixXd Dx = Eigen::MatrixXd::Zero(num_triangles, num_vertices);
-	Eigen::MatrixXd Dy = Eigen::MatrixXd::Zero(num_triangles, num_vertices);
+void TrianglesMapping::jacobian_rotation_area(Triangles& map) {
+	num_vertices = map.nverts();
+	num_triangles = map.nfacets();
+	Dx = Eigen::MatrixXd::Zero(num_triangles, num_vertices);
+	Dy = Eigen::MatrixXd::Zero(num_triangles, num_vertices);
+	Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	xk_1 = Eigen::VectorXd::Zero(2 * num_triangles);
 	for (auto f : map.iter_facets()) {
+		int ind = 0;
 		Eigen::Matrix2d J_i;
 		J_i(0, 0) = f.vertex(1).pos()[0] - f.vertex(0).pos()[0];
 		J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
@@ -63,7 +66,7 @@ void TrianglesMapping::jacobians(Triangles& map) {
 		// Construct the closest rotation matrix R_i
 		Eigen::Matrix2d R_i = U * V.transpose();
 
-		// Step 4: Store R_i in the vector
+		// Store R_i in the vector
 		Rot.push_back(R_i);
 
 		
@@ -71,12 +74,19 @@ void TrianglesMapping::jacobians(Triangles& map) {
 		double u2 = f.vertex(1).pos()[0], v2 = f.vertex(0).pos()[2];
 		double u3 = f.vertex(2).pos()[0], v3 = f.vertex(0).pos()[2];
 		auto gradients = compute_gradients(u1, v1, u2, v2, u3, v3);
-		Vector3d dudN = gradients.first;
-		Vector3d dvdN = gradients.second;
+		Eigen::Vector3d dudN = gradients.first;
+		Eigen::Vector3d dvdN = gradients.second;
 		for (int j = 0; j < 3; ++j) {
-			Dx(i, f.vertex(j)) = dudN(j);
-			Dy(i, f.vertex(j)) = dvdN(j);
+			Dx(ind, int(f.vertex(j))) = dudN(j);
+			Dy(ind, int(f.vertex(j))) = dvdN(j);
+
+			xk_1(int(f.vertex(j))) = f.vertex(j).pos()[0];
+			xk_1(int(f.vertex(j)) + num_vertices) = f.vertex(j).pos()[2];
 		}
+
+		Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos())); // Compute the square root of the area of the triangle
+
+		ind++;
 	}
 }
 
@@ -95,42 +105,125 @@ void TrianglesMapping::update_weights() {
 	}
 }
 
-	// Define weights
-	MatrixXd W11 = MatrixXd::Identity(num_triangles, num_triangles);
-	MatrixXd W12 = MatrixXd::Zero(num_triangles, num_triangles);
-	MatrixXd W21 = MatrixXd::Zero(num_triangles, num_triangles);
-	MatrixXd W22 = MatrixXd::Identity(num_triangles, num_triangles);
+void TrianglesMapping::least_squares() {
+	Eigen::MatrixXd W11 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	Eigen::MatrixXd W12 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	Eigen::MatrixXd W21 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	Eigen::MatrixXd W22 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
 
-	// Define R
-	VectorXd R11(num_triangles), R21(num_triangles), R12(num_triangles), R22(num_triangles);
-	R11 << 1, 0;
-	R21 << 0, 1;
-	R12 << 0, 0;
-	R22 << 1, 1;
+	Eigen::VectorXd R11 = Eigen::VectorXd::Zero(num_triangles);
+	Eigen::VectorXd R12 = Eigen::VectorXd::Zero(num_triangles);
+	Eigen::VectorXd R21 = Eigen::VectorXd::Zero(num_triangles);
+	Eigen::VectorXd R22 = Eigen::VectorXd::Zero(num_triangles);
+
+	for (int i = 0; i < num_triangles; ++i) {
+		W11(i, i) = Wei[i](0, 0);
+		W12(i, i) = Wei[i](0, 1);
+		W21(i, i) = Wei[i](1, 0);
+		W22(i, i) = Wei[i](1, 1);
+
+		R11(i, 0) = Rot[i](0, 0);
+		R12(i, 0) = Rot[i](0, 1);
+		R21(i, 0) = Rot[i](1, 0);
+		R22(i, 0) = Rot[i](1, 1);
+	}
 
 	// Form A and b matrices
-	MatrixXd A(4 * num_triangles, 2 * num_vertices);
-	A << W11 * Dx, W12 * Dx,
-		W21 * Dy, W22 * Dy,
-		W11 * Dy, W12 * Dy,
-		W21 * Dx, W22 * Dx;
+	Eigen::MatrixXd A(4 * num_triangles, 2 * num_vertices);
+	A << Af * W11 * Dx, Af * W12 * Dx,
+		Af * W21 * Dx, Af * W22 * Dx,
+		Af * W11 * Dy, Af * W12 * Dy,
+		Af * W21 * Dy, Af * W22 * Dy;
 	
-	VectorXd b(4 * num_triangles);
-	b << R11, R21, R12, R22;
+	Eigen::VectorXd b(4 * num_triangles);
+	b << Af * W11 * R11 + Af * W12 * R12,
+		Af * W21 * R11 + Af * W22 * R12,
+		Af * W11 * R21 + Af * W12 * R22,
+		Af * W21 * R21, Af * W22 * R22;
 
 	// Solve using least squares
-	VectorXd x = A.colPivHouseholderQr().solve(b);
+	// x = A.colPivHouseholderQr().solve(b);
+	// Eigen::MatrixXd At = A.transpose();
+	// Eigen::MatrixXd AtA = At * A;
+	// Eigen::MatrixXd AtB = At * b;
+	// Eigen::MatrixXd X = AtA.colPivHouseholderQr().solve(AtB);
+	// double lambda = 0.0001;
+	// // Solve for pk (argmin problem)
+	// Eigen::VectorXd pk = (A.transpose() * A + lambda * Eigen::MatrixXd::Identity(2 * num_vertices, 2 * num_vertices)).ldlt().solve(A.transpose() * b + lambda * xk_1);
+	xk = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
 
-	cout << "Solution x:" << endl << x << endl;
+	std::cout << "Solution x:" << std::endl << xk << std::endl << xk.rows() << std::endl << xk.cols() << std::endl;
+}
 
+double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+                      std::function<double(const Eigen::VectorXd&)> objFunc,
+                      std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc) {
+	// Line search using Wolfe conditions
+	double alpha = 1.0;
+	double c1 = 1e-4;
+	double c2 = 0.9;
+	double alphaMax = 1.0;
 
-void least_squares(const Eigen::MatrixXf& A, const Eigen::MatrixXf& b) {
-	Eigen::MatrixXf At = A.transpose();
-	Eigen::MatrixXf AtA = At * A;
-	Eigen::MatrixXf AtB = At * B;
-	Eigen::MatrixXf X = AtA.colPivHouseholderQr().solve(AtB);
-	
+	Eigen::VectorXd pk = xk + alpha * dk;
 
+	// Wolfe conditions
+	auto wolfe1 = [&]() {
+		return objFunc(pk) <= objFunc(xk) + c1 * alpha * gradFunc(xk).dot(dk);
+	};
+
+	auto wolfe2 = [&]() {
+		return gradFunc(pk).dot(dk) >= c2 * gradFunc(xk).dot(dk);
+	};
+
+	// Initial check
+	if (wolfe1() && wolfe2()) {
+		return alpha;
+	}
+
+	// Bisection line search
+	double alphaLow = 0.0;
+	double alphaHigh = alphaMax;
+
+	while (alphaHigh - alphaLow > 1e-8) {
+		alpha = (alphaLow + alphaHigh) / 2.0;
+		pk = xk + alpha * dk;
+
+		if (!wolfe1()) {
+			alphaHigh = alpha;
+		} else if (!wolfe2()) {
+			alphaLow = alpha;
+		} else {
+			break;
+		}
+	}
+
+	return alpha;
+}
+
+void TrianglesMapping::nextStep() {
+	// Define the objective function
+	auto objFunc = [](const Eigen::VectorXd& x) -> double {
+		return x.squaredNorm();  // Example: simple quadratic function
+	};
+
+	// Define the gradient function
+	auto gradFunc = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+		return 2 * x;  // Example: gradient of simple quadratic function
+	};
+
+	// Example starting point and direction
+	Eigen::VectorXd xk = Eigen::VectorXd::Random(3);  // Random starting point
+	Eigen::VectorXd dk = Eigen::VectorXd::Ones(3);    // Example direction
+
+	// Perform line search to find step size alpha
+	double alpha = lineSearch(xk, dk, objFunc, gradFunc);
+
+	// Update the solution xk
+	xk = xk + alpha * dk;
+
+	// Output the result
+	std::cout << "The new solution is:\n" << xk << std::endl;
+	std::cout << "Step size alpha: " << alpha << std::endl;
 }
 
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
@@ -207,7 +300,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 
 	int fixed = 0;
 	std::set<int> blade;
-	Eigen::MatrixXf x_B_ = Eigen::MatrixXf::Zero(nverts, 1);
+	Eigen::MatrixXd x_B_ = Eigen::MatrixXd::Zero(nverts, 1);
 	for (int i = 0; i < mTut.nverts(); i++) {
 	Surface::Vertex vi = Surface::Vertex(mOri, i);
 	if (vi.pos()[1] <= cuttingSurface+dcuttingSurface && vi.pos()[1] >= cuttingSurface-dcuttingSurface) {
@@ -219,7 +312,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	}
 	}
 
-	Eigen::MatrixXf x_I_ = Eigen::MatrixXf::Zero(nverts, 1);
+	Eigen::MatrixXd x_I_ = Eigen::MatrixXd::Zero(nverts, 1);
 	int insider = 0;
 	std::set<int> plane;
 	for (int i = 0; i < mTut.nverts(); i++) {
@@ -232,19 +325,19 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	}
 	}
 
-	Eigen::MatrixXf A_II = Eigen::MatrixXf::Zero(nverts-fixed, nverts-fixed);
-	Eigen::MatrixXf A_IB = Eigen::MatrixXf::Zero(nverts-fixed, fixed);
-	Eigen::MatrixXf b_I = Eigen::MatrixXf::Zero(nverts - fixed, 2);
-	Eigen::MatrixXf x_B = Eigen::MatrixXf::Zero(fixed, 2);
+	Eigen::MatrixXd A_II = Eigen::MatrixXd::Zero(nverts-fixed, nverts-fixed);
+	Eigen::MatrixXd A_IB = Eigen::MatrixXd::Zero(nverts-fixed, fixed);
+	Eigen::MatrixXd b_I = Eigen::MatrixXd::Zero(nverts - fixed, 2);
+	Eigen::MatrixXd x_B = Eigen::MatrixXd::Zero(fixed, 2);
 
 
 
-	Eigen::MatrixXf A_II_A_BB = Eigen::MatrixXf::Zero(nverts, nverts);
+	Eigen::MatrixXd A_II_A_BB = Eigen::MatrixXd::Zero(nverts, nverts);
 	for (int i = 0; i < fixed; ++i) {
 	A_II_A_BB(i, i) = 1;
 	}
 
-	Eigen::MatrixXf lhsF = Eigen::MatrixXf::Zero(nverts, 3);
+	Eigen::MatrixXd lhsF = Eigen::MatrixXd::Zero(nverts, 3);
 
 
 
@@ -376,10 +469,10 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	DBOUT("Vertex " << vert << "/" << nverts << " (" << progress << " %) --- dim1: " << mOri.points[i][0] << ", dim2: " << mOri.points[i][1] << ", dim3: " << mOri.points[i][2] << std::endl);
 	}
 
-	/*Eigen::MatrixXf lhs = b_I - A_IB * x_B;
-	Eigen::MatrixXf x_I = A_II.colPivHouseholderQr().solve(lhs);*/
+	/*Eigen::MatrixXd lhs = b_I - A_IB * x_B;
+	Eigen::MatrixXd x_I = A_II.colPivHouseholderQr().solve(lhs);*/
 	
-	Eigen::MatrixXf x_I = A_II_A_BB.colPivHouseholderQr().solve(lhsF);
+	Eigen::MatrixXd x_I = A_II_A_BB.colPivHouseholderQr().solve(lhsF);
 
 	EigenMap = x_I;
 
@@ -437,7 +530,9 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 }
 
 void TrianglesMapping::LocalGlobalParametrization(Triangles& map) {
-	jacobians(map);
+	jacobian_rotation_area(map);
+	update_weights();
+	least_squares();
 }
 
 void updateProgressBar(int progress) {
@@ -457,7 +552,7 @@ void updateProgressBar(int progress) {
 int main(int argc, char** argv) {
 
     auto start = std::chrono::high_resolution_clock::now();
-    TrianglesMapping Init(argc, argv, "arap");
+    TrianglesMapping Init(argc, argv);
 	auto end = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	std::cout << "Time taken: " << duration << " milliseconds" << std::endl;
@@ -534,91 +629,7 @@ int main(int argc, char** argv) {
     std::cout << "The solution is:\n" << x << std::endl;
 
 
-	using namespace Eigen;
-using namespace std;
 
-// Function to compute the value of the objective function
-double objectiveFunction(const VectorXd& x) {
-    // Define your objective function here
-    return x.squaredNorm();  // Example: simple quadratic function
-}
-
-// Function to compute the gradient of the objective function
-VectorXd gradientFunction(const VectorXd& x) {
-    // Define your gradient computation here
-    return 2 * x;  // Example: gradient of simple quadratic function
-}
-
-// Line search using Wolfe conditions
-double lineSearch(const VectorXd& xk, const VectorXd& dk, function<double(const VectorXd&)> objFunc, function<VectorXd(const VectorXd&)> gradFunc) {
-    double alpha = 1.0;
-    double c1 = 1e-4;
-    double c2 = 0.9;
-    double alphaMax = 1.0;
-
-    VectorXd pk = xk + alpha * dk;
-
-    // Wolfe conditions
-    auto wolfe1 = [&]() {
-        return objFunc(pk) <= objFunc(xk) + c1 * alpha * gradFunc(xk).dot(dk);
-    };
-
-    auto wolfe2 = [&]() {
-        return gradFunc(pk).dot(dk) >= c2 * gradFunc(xk).dot(dk);
-    };
-
-    // Initial check
-    if (wolfe1() && wolfe2()) {
-        return alpha;
-    }
-
-    // Bisection line search
-    double alphaLow = 0.0;
-    double alphaHigh = alphaMax;
-
-    while (alphaHigh - alphaLow > 1e-8) {
-        alpha = (alphaLow + alphaHigh) / 2.0;
-        pk = xk + alpha * dk;
-
-        if (!wolfe1()) {
-            alphaHigh = alpha;
-        } else if (!wolfe2()) {
-            alphaLow = alpha;
-        } else {
-            break;
-        }
-    }
-
-    return alpha;
-}
-
-int main() {
-    // Define the dimensions of the problem
-    const int n = 4;  // Number of elements, adjust as needed
-
-    // Initial guess xk-1 (example initialization)
-    VectorXd xk_1 = VectorXd::Random(2 * n);
-
-    // Example values for A, b, and lambda
-    MatrixXd A = MatrixXd::Random(4 * n, 2 * n);
-    VectorXd b = VectorXd::Random(4 * n);
-    double lambda = 0.1;
-
-    // Solve for pk (argmin problem)
-    VectorXd pk = (A.transpose() * A + lambda * MatrixXd::Identity(2 * n, 2 * n)).ldlt().solve(A.transpose() * b + lambda * xk_1);
-
-    // Compute the search direction dk
-    VectorXd dk = pk - xk_1;
-
-    // Perform line search to find step size alpha
-    double alpha = lineSearch(xk_1, dk, objectiveFunction, gradientFunction);
-
-    // Update the solution xk
-    VectorXd xk = xk_1 + alpha * dk;
-
-    // Output the result
-    cout << "The new solution is:\n" << xk << endl;
-    cout << "Step size alpha: " << alpha << endl;
 	
 	using namespace Eigen;
 using namespace std;
@@ -847,7 +858,7 @@ int main() {
     
     
     
-    /*Eigen::MatrixXf lhsF2 = Eigen::MatrixXf::Zero(nverts, 2);
+    /*Eigen::MatrixXd lhsF2 = Eigen::MatrixXd::Zero(nverts, 2);
     
     
     

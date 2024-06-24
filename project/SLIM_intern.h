@@ -15,6 +15,8 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <cmath>
+#include <functional>
 
 
 
@@ -38,33 +40,55 @@
 using namespace UM;
 
 
+// Template for the objective function
+template<typename FuncType>
+double objectiveFunctionTemplate(const Eigen::VectorXd& x, FuncType objFunc) {
+    return objFunc(x);
+}
+
+// Template for the gradient function
+template<typename GradType>
+Eigen::VectorXd gradientFunctionTemplate(const Eigen::VectorXd& x, GradType gradFunc) {
+    return gradFunc(x);
+}
+
+
 class TrianglesMapping {
 public:
     TrianglesMapping(const int acount, char** avariable);
 
-    Eigen::MatrixXf getEigenMap() const;
+    Eigen::MatrixXd getEigenMap() const;
     const char* getOutput() const;
     void LocalGlobalParametrization(Triangles& map);
 
-    std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
-    Eigen::MatrixXd Dx, Dy;
+    Eigen::VectorXd xk;
+    Eigen::VectorXd xk_1;
+    Eigen::VectorXd pk;
 
 private:
     Triangles mOri;
     Triangles mTut;
     Triangles mLocGlo;
-    Eigen::MatrixXf EigenMap;
+    Eigen::MatrixXd EigenMap;
     char output_name[65];
-    char energy[65];
+    char energy[65] = "arap";
 
+    int num_vertices;
+	int num_triangles;
+    std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
+    Eigen::MatrixXd Af; // Area factor
+    Eigen::MatrixXd Dx, Dy;
     Eigen::VectorXi dx_i, dx_j;////////////////////////
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
     void Tut63(const int acount, char** avariable);
-    std::pair<Eigen::Vector3d, Eigen::Vector3d> TrianglesMapping::compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
-    void jacobians(Triangles& map);
+    std::pair<Eigen::Vector3d, Eigen::Vector3d> compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
+    void jacobian_rotation_area(Triangles& map);
     void update_weights();
+    void least_squares();
+    double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk, std::function<double(const Eigen::VectorXd&)> objFunc, std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc);
+    void nextStep();
 };
 
 
