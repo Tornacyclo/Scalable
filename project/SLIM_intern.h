@@ -64,6 +64,7 @@ public:
     Eigen::VectorXd xk;
     Eigen::VectorXd xk_1;
     Eigen::VectorXd pk;
+    Eigen::VectorXd dk;
 
 private:
     Triangles mOri;
@@ -89,6 +90,13 @@ private:
     void jacobian_rotation_area(Triangles& map);
     void update_weights();
     void least_squares();
+    void verify_flips(const Eigen::MatrixXd& V,
+				const Eigen::MatrixXi& F,
+				Triangles& map,
+				std::vector<int>& ind_flip);
+    int flipsCount(const Eigen::MatrixXd& V,
+			const Eigen::MatrixXi& F,
+			Triangles& map);
     double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk, std::function<double(const Eigen::VectorXd&)> objFunc, std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc);
     void nextStep();
 };

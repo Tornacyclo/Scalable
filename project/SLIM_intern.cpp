@@ -151,8 +151,35 @@ void TrianglesMapping::least_squares() {
 	// // Solve for pk (argmin problem)
 	// Eigen::VectorXd pk = (A.transpose() * A + lambda * Eigen::MatrixXd::Identity(2 * num_vertices, 2 * num_vertices)).ldlt().solve(A.transpose() * b + lambda * xk_1);
 	xk = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
-
+	dk = xk - xk_1;
 	std::cout << "Solution x:" << std::endl << xk << std::endl << xk.rows() << std::endl << xk.cols() << std::endl;
+}
+
+void TrianglesMapping::verify_flips(const Eigen::MatrixXd& V,
+				const Eigen::MatrixXi& F,
+				Triangles& map,
+				std::vector<int>& ind_flip) {
+	ind_flip.resize(0);
+	for (auto f : map.iter_facets()) {
+		Eigen::MatrixXd T2_Homo(3,3);
+		T2_Homo.col(0) << f.vertex(0).pos()[0], f.vertex(0).pos()[2], 1;
+		T2_Homo.col(1) << f.vertex(1).pos()[0], f.vertex(1).pos()[2], 1;
+		T2_Homo.col(2) << f.vertex(2).pos()[0], f.vertex(2).pos()[2], 1;
+		double det = T2_Homo.determinant();
+		assert (det == det);
+		if (det < 0) {
+		// cout << "flip at face #" << i << " det = " << T2_Homo.determinant() << endl;
+		ind_flip.push_back(int(f));
+		}
+	}
+	}
+
+int TrianglesMapping::flipsCount(const Eigen::MatrixXd& V,
+			const Eigen::MatrixXi& F,
+			Triangles& map) {
+std::vector<int> ind_flip;
+verify_flips(V, F, map, ind_flip);
+return ind_flip.size();
 }
 
 double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
@@ -163,6 +190,48 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
 	double c1 = 1e-4;
 	double c2 = 0.9;
 	double alphaMax = 1.0;
+
+	//
+	// Pseudocode for determining alphaMax according to flips
+
+1. Initialize alphaMax to a large value, e.g., 1.0.
+2. Set a small decrement value for alpha, e.g., 0.1.
+3. Loop until a suitable alphaMax is found:
+   a. Compute the new position vector xk_new = xk + alphaMax * dk.
+   b. Check for flips using the verify_flips function with the new position vector.
+   c. If flips are detected, reduce alphaMax by the decrement value and repeat.
+   d. If no flips are detected, break the loop as a suitable alphaMax has been found.
+4. Return the determined alphaMax.
+
+// Implementation in C++
+double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+                                            const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
+                                            Triangles& map) {
+    double alphaMax = 1.0; // Initial maximal step size
+    double decrement = 0.1; // Decrement value for alphaMax
+    std::vector<int> ind_flip;
+
+    while (alphaMax > 0) {
+        // Compute new position vector
+        Eigen::VectorXd xk_new = xk + alphaMax * dk;
+        // Update map positions based on xk_new
+        // This step depends on how the map is structured and how xk_new affects the map's vertices
+        // For simplicity, assume a function updateMapPositions exists that updates the map
+        updateMapPositions(map, xk_new, V, F);
+
+        // Verify flips with the updated map
+        verify_flips(V, F, map, ind_flip);
+        if (ind_flip.empty()) {
+            // No flips detected, suitable alphaMax found
+            break;
+        } else {
+            // Flips detected, reduce alphaMax and try again
+            alphaMax -= decrement;
+        }
+    }
+    return alphaMax;
+}
+//
 
 	Eigen::VectorXd pk = xk + alpha * dk;
 
@@ -211,15 +280,11 @@ void TrianglesMapping::nextStep() {
 		return 2 * x;  // Example: gradient of simple quadratic function
 	};
 
-	// Example starting point and direction
-	Eigen::VectorXd xk = Eigen::VectorXd::Random(3);  // Random starting point
-	Eigen::VectorXd dk = Eigen::VectorXd::Ones(3);    // Example direction
-
 	// Perform line search to find step size alpha
-	double alpha = lineSearch(xk, dk, objFunc, gradFunc);
+	double alpha = lineSearch(xk_1, dk, objFunc, gradFunc);
 
 	// Update the solution xk
-	xk = xk + alpha * dk;
+	xk = xk_1 + alpha * dk;
 
 	// Output the result
 	std::cout << "The new solution is:\n" << xk << std::endl;
@@ -800,7 +865,7 @@ int main() {
     return 0;
 }
 
-}*//////////////////////
+}*////////////////////// SLIM_intern.cpp //////////////////////
 
 
 	/*void map_vertices_to_circle_area_normalized(
@@ -855,38 +920,12 @@ int main() {
 
 	}
 
-	void get_flips(const Eigen::MatrixXd& V,
-				const Eigen::MatrixXi& F,
-				const Eigen::MatrixXd& uv,
-				std::vector<int>& flip_idx) {
-	flip_idx.resize(0);
-	for (int i = 0; i < F.rows(); i++) {
-
-		Eigen::Vector2d v1_n = uv.row(F(i,0)); Eigen::Vector2d v2_n = uv.row(F(i,1)); Eigen::Vector2d v3_n = uv.row(F(i,2));
-
-		Eigen::MatrixXd T2_Homo(3,3);
-		T2_Homo.col(0) << v1_n(0),v1_n(1),1;
-		T2_Homo.col(1) << v2_n(0),v2_n(1),1;
-		T2_Homo.col(2) << v3_n(0),v3_n(1),1;
-		double det = T2_Homo.determinant();
-		assert (det == det);
-		if (det < 0) {
-		//cout << "flip at face #" << i << " det = " << T2_Homo.determinant() << endl;
-		flip_idx.push_back(i);
-		}
-	}
-	}
-	int count_flips(const Eigen::MatrixXd& V,
-				const Eigen::MatrixXi& F,
-				const Eigen::MatrixXd& uv) {
-
-	std::vector<int> flip_idx;
-	get_flips(V,F,uv,flip_idx);
-
-	
-	return flip_idx.size();
-	}*/
+	*/
     
+
+	/////////////////////////// END ///////////////////////////
+
+
     
     
     /*Eigen::MatrixXd lhsF2 = Eigen::MatrixXd::Zero(nverts, 2);
