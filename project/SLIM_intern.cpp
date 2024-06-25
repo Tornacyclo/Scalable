@@ -226,7 +226,10 @@ void TrianglesMapping::nextStep() {
 	std::cout << "Step size alpha: " << alpha << std::endl;
 
 
-	for (auto f : mLocGlo.iter_vertices()) {}
+	for (auto v : mLocGlo.iter_vertices()) {
+		v.pos()[0] = xk(int(v));
+		v.pos()[2] = xk(int(v) + num_vertices);
+	}
 }
 
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
@@ -532,8 +535,8 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	#endif
 }
 
-void TrianglesMapping::LocalGlobalParametrization(Triangles& map) {
-	mLocGlo = map;
+void TrianglesMapping::LocalGlobalParametrization(const char* map) {
+	read_by_extension(map, mLocGlo);
 	for (int i = 0; i < max_iterations; ++i) {
     jacobian_rotation_area(mLocGlo);
     update_weights();
@@ -564,10 +567,9 @@ int main(int argc, char** argv) {
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	std::cout << "Time taken: " << duration << " milliseconds" << std::endl;
     
-	Triangles map;
-	read_by_extension(Init.getOutput(), map);
-	Init.LocalGlobalParametrization(map);
+	Init.LocalGlobalParametrization(Init.getOutput());
 
+	
 
 	for (int progress = 0; progress <= 100; ++progress) {
         updateProgressBar(progress);

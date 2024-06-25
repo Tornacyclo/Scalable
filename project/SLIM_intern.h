@@ -59,7 +59,7 @@ public:
 
     Eigen::MatrixXd getEigenMap() const;
     const char* getOutput() const;
-    void LocalGlobalParametrization(Triangles& map);
+    void LocalGlobalParametrization(const char* map);
 
     Eigen::VectorXd xk;
     Eigen::VectorXd xk_1;
