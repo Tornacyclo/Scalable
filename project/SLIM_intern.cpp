@@ -106,43 +106,201 @@ void TrianglesMapping::update_weights() {
 }
 
 void TrianglesMapping::least_squares() {
-	Eigen::MatrixXd W11 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
-	Eigen::MatrixXd W12 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
-	Eigen::MatrixXd W21 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
-	Eigen::MatrixXd W22 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	// Eigen::MatrixXd W11 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	// Eigen::MatrixXd W12 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	// Eigen::MatrixXd W21 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+	// Eigen::MatrixXd W22 = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
 
+	// Eigen::VectorXd R11 = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd R12 = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd R21 = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd R22 = Eigen::VectorXd::Zero(num_triangles);
+
+	// for (int i = 0; i < num_triangles; ++i) {
+	// 	W11(i, i) = Wei[i](0, 0);
+	// 	W12(i, i) = Wei[i](0, 1);
+	// 	W21(i, i) = Wei[i](1, 0);
+	// 	W22(i, i) = Wei[i](1, 1);
+
+	// 	R11(i, 0) = Rot[i](0, 0);
+	// 	R12(i, 0) = Rot[i](0, 1);
+	// 	R21(i, 0) = Rot[i](1, 0);
+	// 	R22(i, 0) = Rot[i](1, 1);
+	// }
+	// std::cout << "W11: " << std::endl << W11 << std::endl;
+	// // Form A and b matrices
+	// Eigen::MatrixXd A(4 * num_triangles, 2 * num_vertices);
+	// A << Af * W11 * Dx, Af * W12 * Dx,
+	// 	Af * W21 * Dx, Af * W22 * Dx,
+	// 	Af * W11 * Dy, Af * W12 * Dy,
+	// 	Af * W21 * Dy, Af * W22 * Dy;
+	
+	// Eigen::VectorXd b(4 * num_triangles);
+	// b << Af * W11 * R11 + Af * W12 * R12,
+	// 	Af * W21 * R11 + Af * W22 * R12,
+	// 	Af * W11 * R21 + Af * W12 * R22,
+	// 	Af * W21 * R21, Af * W22 * R22;
+	//--------------------------------------------------------------------------------------------
+	// Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4 * num_triangles, 2 * num_vertices);
+	// Eigen::VectorXd b = Eigen::VectorXd::Zero(4 * num_triangles);
+
+	// for (int i = 0; i < num_triangles; ++i) {
+	// 	// Indices for the block
+	// 	int row_offset = i * 4;
+
+	// 	// Get the diagonal element of Af for the current triangle
+	// 	double Af_i = Af(i, i);
+
+	// 	// Fill the A matrix
+	// 	A.block(row_offset, 0, 1, 2 * num_vertices) = Af_i * Wei[i](0, 0) * Dx.row(i);
+	// 	A.block(row_offset, num_vertices, 1, 2 * num_vertices) = Af_i * Wei[i](0, 1) * Dx.row(i);
+	// 	A.block(row_offset + 1, 0, 1, 2 * num_vertices) = Af_i * Wei[i](1, 0) * Dx.row(i);
+	// 	A.block(row_offset + 1, num_vertices, 1, 2 * num_vertices) = Af_i * Wei[i](1, 1) * Dx.row(i);
+		
+	// 	A.block(row_offset + 2, 0, 1, 2 * num_vertices) = Af_i * Wei[i](0, 0) * Dy.row(i);
+	// 	A.block(row_offset + 2, num_vertices, 1, 2 * num_vertices) = Af_i * Wei[i](0, 1) * Dy.row(i);
+	// 	A.block(row_offset + 3, 0, 1, 2 * num_vertices) = Af_i * Wei[i](1, 0) * Dy.row(i);
+	// 	A.block(row_offset + 3, num_vertices, 1, 2 * num_vertices) = Af_i * Wei[i](1, 1) * Dy.row(i);
+		
+	// 	// Fill the b vector
+	// 	b(row_offset) = Af_i * (Wei[i](0, 0) * Rot[i](0, 0) + Wei[i](0, 1) * Rot[i](0, 1));
+	// 	b(row_offset + 1) = Af_i * (Wei[i](1, 0) * Rot[i](0, 0) + Wei[i](1, 1) * Rot[i](0, 1));
+	// 	b(row_offset + 2) = Af_i * (Wei[i](0, 0) * Rot[i](1, 0) + Wei[i](0, 1) * Rot[i](1, 1));
+	// 	b(row_offset + 3) = Af_i * (Wei[i](1, 0) * Rot[i](1, 0) + Wei[i](1, 1) * Rot[i](1, 1));
+	// }
+	//--------------------------------------------------------------------------------------------
+	// Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4 * num_triangles, 2 * num_vertices);
+	// Eigen::VectorXd b = Eigen::VectorXd::Zero(4 * num_triangles);
+
+	// // Create diagonal matrices W11, W12, W21, W22 as vectors
+	// Eigen::VectorXd W11_diag = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd W12_diag = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd W21_diag = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd W22_diag = Eigen::VectorXd::Zero(num_triangles);
+
+	// // R vectors
+	// Eigen::VectorXd R11 = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd R12 = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd R21 = Eigen::VectorXd::Zero(num_triangles);
+	// Eigen::VectorXd R22 = Eigen::VectorXd::Zero(num_triangles);
+
+	// for (int i = 0; i < num_triangles; ++i) {
+	// 	W11_diag(i) = Wei[i](0, 0);
+	// 	W12_diag(i) = Wei[i](0, 1);
+	// 	W21_diag(i) = Wei[i](1, 0);
+	// 	W22_diag(i) = Wei[i](1, 1);
+
+	// 	R11(i) = Rot[i](0, 0);
+	// 	R12(i) = Rot[i](0, 1);
+	// 	R21(i) = Rot[i](1, 0);
+	// 	R22(i) = Rot[i](1, 1);
+	// }
+
+	// // Fill in the A matrix
+	// for (int i = 0; i < num_triangles; ++i) {
+	// 	double Af_i = Af(i, i); // Accessing the diagonal element of Af
+
+	// 	A.block(i, 0, 1, num_vertices) += Af_i * W11_diag(i) * Dx.row(i);
+	// 	A.block(i, num_vertices, 1, num_vertices) += Af_i * W12_diag(i) * Dx.row(i);
+
+	// 	A.block(num_triangles + i, 0, 1, num_vertices) += Af_i * W21_diag(i) * Dx.row(i);
+	// 	A.block(num_triangles + i, num_vertices, 1, num_vertices) += Af_i * W22_diag(i) * Dx.row(i);
+
+	// 	A.block(2 * num_triangles + i, 0, 1, num_vertices) += Af_i * W11_diag(i) * Dy.row(i);
+	// 	A.block(2 * num_triangles + i, num_vertices, 1, num_vertices) += Af_i * W12_diag(i) * Dy.row(i);
+
+	// 	A.block(3 * num_triangles + i, 0, 1, num_vertices) += Af_i * W21_diag(i) * Dy.row(i);
+	// 	A.block(3 * num_triangles + i, num_vertices, 1, num_vertices) += Af_i * W22_diag(i) * Dy.row(i);
+	// }
+
+	// // Fill in the b vector
+	// for (int i = 0; i < num_triangles; ++i) {
+	// 	double Af_i = Af(i, i); // Accessing the diagonal element of Af
+
+	// 	b(i) = Af_i * (W11_diag(i) * R11(i) + W12_diag(i) * R12(i));
+	// 	b(num_triangles + i) = Af_i * (W21_diag(i) * R11(i) + W22_diag(i) * R12(i));
+	// 	b(2 * num_triangles + i) = Af_i * (W11_diag(i) * R21(i) + W12_diag(i) * R22(i));
+	// 	b(3 * num_triangles + i) = Af_i * (W21_diag(i) * R21(i) + W22_diag(i) * R22(i));
+	// }
+
+	Eigen::SparseMatrix<double> A(4 * num_triangles, 2 * num_vertices);
+	Eigen::VectorXd b = Eigen::VectorXd::Zero(4 * num_triangles);
+
+	// Create diagonal matrices W11, W12, W21, W22 as vectors
+	Eigen::VectorXd W11_diag = Eigen::VectorXd::Zero(num_triangles);
+	Eigen::VectorXd W12_diag = Eigen::VectorXd::Zero(num_triangles);
+	Eigen::VectorXd W21_diag = Eigen::VectorXd::Zero(num_triangles);
+	Eigen::VectorXd W22_diag = Eigen::VectorXd::Zero(num_triangles);
+
+	// R vectors
 	Eigen::VectorXd R11 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R12 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R21 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R22 = Eigen::VectorXd::Zero(num_triangles);
 
 	for (int i = 0; i < num_triangles; ++i) {
-		W11(i, i) = Wei[i](0, 0);
-		W12(i, i) = Wei[i](0, 1);
-		W21(i, i) = Wei[i](1, 0);
-		W22(i, i) = Wei[i](1, 1);
+		W11_diag(i) = Wei[i](0, 0);
+		W12_diag(i) = Wei[i](0, 1);
+		W21_diag(i) = Wei[i](1, 0);
+		W22_diag(i) = Wei[i](1, 1);
 
-		R11(i, 0) = Rot[i](0, 0);
-		R12(i, 0) = Rot[i](0, 1);
-		R21(i, 0) = Rot[i](1, 0);
-		R22(i, 0) = Rot[i](1, 1);
+		R11(i) = Rot[i](0, 0);
+		R12(i) = Rot[i](0, 1);
+		R21(i) = Rot[i](1, 0);
+		R22(i) = Rot[i](1, 1);
 	}
 
-	// Form A and b matrices
-	Eigen::MatrixXd A(4 * num_triangles, 2 * num_vertices);
-	A << Af * W11 * Dx, Af * W12 * Dx,
-		Af * W21 * Dx, Af * W22 * Dx,
-		Af * W11 * Dy, Af * W12 * Dy,
-		Af * W21 * Dy, Af * W22 * Dy;
-	
-	Eigen::VectorXd b(4 * num_triangles);
-	b << Af * W11 * R11 + Af * W12 * R12,
-		Af * W21 * R11 + Af * W22 * R12,
-		Af * W11 * R21 + Af * W12 * R22,
-		Af * W21 * R21, Af * W22 * R22;
+	// Fill in the A matrix
+	std::vector<Eigen::Triplet<double>> triplets;
+	for (int i = 0; i < num_triangles; ++i) {
+		double Af_i = Af(i, i); // Accessing the diagonal element of Af
+
+		for (int j = 0; j < num_vertices; ++j) {
+			if (Dx(i, j) != 0) {
+				triplets.push_back({i, j, Af_i * W11_diag(i) * Dx(i, j)});
+				triplets.push_back({i, num_vertices + j, Af_i * W12_diag(i) * Dx(i, j)});
+				triplets.push_back({num_triangles + i, j, Af_i * W21_diag(i) * Dx(i, j)});
+				triplets.push_back({num_triangles + i, num_vertices + j, Af_i * W22_diag(i) * Dx(i, j)});
+				triplets.push_back({2 * num_triangles + i, j, Af_i * W11_diag(i) * Dy(i, j)});
+				triplets.push_back({2 * num_triangles + i, num_vertices + j, Af_i * W12_diag(i) * Dy(i, j)});
+				triplets.push_back({3 * num_triangles + i, j, Af_i * W21_diag(i) * Dy(i, j)});
+				triplets.push_back({3 * num_triangles + i, num_vertices + j, Af_i * W22_diag(i) * Dy(i, j)});
+			}
+		}
+	}
+
+	A.setFromTriplets(triplets.begin(), triplets.end());
+
+	// Fill in the b vector
+	for (int i = 0; i < num_triangles; ++i) {
+		double Af_i = Af(i, i); // Accessing the diagonal element of Af
+
+		b(i) = Af_i * (W11_diag(i) * R11(i) + W12_diag(i) * R12(i));
+		b(num_triangles + i) = Af_i * (W21_diag(i) * R11(i) + W22_diag(i) * R12(i));
+		b(2 * num_triangles + i) = Af_i * (W11_diag(i) * R21(i) + W12_diag(i) * R22(i));
+		b(3 * num_triangles + i) = Af_i * (W21_diag(i) * R21(i) + W22_diag(i) * R22(i));
+	}
+
+	// Use an iterative solver
+	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver;
+	solver.compute(A);
+
+	if(solver.info() != Eigen::Success) {
+		// Decomposition failed
+		std::cerr << "Decomposition failed" << std::endl;
+		return;
+	}
+
+	Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
+
+	if(solver.info() != Eigen::Success) {
+		// Solving failed
+		std::cerr << "Solving failed" << std::endl;
+		return;
+	}
 
 	// Solve using least squares
-	// x = A.colPivHouseholderQr().solve(b);
+	std::cout << "Solving least squares problem..." << std::endl;
 	// Eigen::MatrixXd At = A.transpose();
 	// Eigen::MatrixXd AtA = At * A;
 	// Eigen::MatrixXd AtB = At * b;
@@ -150,14 +308,13 @@ void TrianglesMapping::least_squares() {
 	// double lambda = 0.0001;
 	// // Solve for pk (argmin problem)
 	// Eigen::VectorXd pk = (A.transpose() * A + lambda * Eigen::MatrixXd::Identity(2 * num_vertices, 2 * num_vertices)).ldlt().solve(A.transpose() * b + lambda * xk_1);
-	xk = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+	// xk = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+	// xk = A.colPivHouseholderQr().solve(b);
 	dk = xk - xk_1;
 	std::cout << "Solution x:" << std::endl << xk << std::endl << xk.rows() << std::endl << xk.cols() << std::endl;
 }
 
-void TrianglesMapping::verify_flips(const Eigen::MatrixXd& V,
-				const Eigen::MatrixXi& F,
-				Triangles& map,
+void TrianglesMapping::verify_flips(Triangles& map,
 				std::vector<int>& ind_flip) {
 	ind_flip.resize(0);
 	for (auto f : map.iter_facets()) {
@@ -174,66 +331,50 @@ void TrianglesMapping::verify_flips(const Eigen::MatrixXd& V,
 	}
 	}
 
-int TrianglesMapping::flipsCount(const Eigen::MatrixXd& V,
-			const Eigen::MatrixXi& F,
-			Triangles& map) {
+int TrianglesMapping::flipsCount(Triangles& map) {
 std::vector<int> ind_flip;
-verify_flips(V, F, map, ind_flip);
+verify_flips(map, ind_flip);
 return ind_flip.size();
+}
+
+// This function determines the maximum step size (alphaMax) that does not cause flips in the mesh.
+// It starts with a large alphaMax and iteratively decreases it until no flips are detected.
+double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+											Triangles& map) {
+	double alphaMax = 1.0;
+	double decrement = 0.1;
+	std::vector<int> ind_flip;
+
+	while (alphaMax > 0) {
+		Eigen::VectorXd xk_new = xk + alphaMax * dk;
+		for (auto v : map.iter_vertices()) {
+			v.pos()[0] = xk_new(int(v));
+			v.pos()[2] = xk_new(int(v) + num_vertices);
+		}
+
+		verify_flips(map, ind_flip);
+		if (ind_flip.empty()) {
+			break;
+		} else {
+			alphaMax -= decrement;
+		}
+	}
+	return alphaMax;
 }
 
 double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       std::function<double(const Eigen::VectorXd&)> objFunc,
-                      std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc) {
+                      std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc,
+					  Triangles& map) {
 	// Line search using Wolfe conditions
 	double alpha = 1.0;
 	double c1 = 1e-4;
 	double c2 = 0.9;
-	double alphaMax = 1.0;
-
-	//
-	// Pseudocode for determining alphaMax according to flips
-
-1. Initialize alphaMax to a large value, e.g., 1.0.
-2. Set a small decrement value for alpha, e.g., 0.1.
-3. Loop until a suitable alphaMax is found:
-   a. Compute the new position vector xk_new = xk + alphaMax * dk.
-   b. Check for flips using the verify_flips function with the new position vector.
-   c. If flips are detected, reduce alphaMax by the decrement value and repeat.
-   d. If no flips are detected, break the loop as a suitable alphaMax has been found.
-4. Return the determined alphaMax.
-
-// Implementation in C++
-double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
-                                            const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
-                                            Triangles& map) {
-    double alphaMax = 1.0; // Initial maximal step size
-    double decrement = 0.1; // Decrement value for alphaMax
-    std::vector<int> ind_flip;
-
-    while (alphaMax > 0) {
-        // Compute new position vector
-        Eigen::VectorXd xk_new = xk + alphaMax * dk;
-        // Update map positions based on xk_new
-        // This step depends on how the map is structured and how xk_new affects the map's vertices
-        // For simplicity, assume a function updateMapPositions exists that updates the map
-        updateMapPositions(map, xk_new, V, F);
-
-        // Verify flips with the updated map
-        verify_flips(V, F, map, ind_flip);
-        if (ind_flip.empty()) {
-            // No flips detected, suitable alphaMax found
-            break;
-        } else {
-            // Flips detected, reduce alphaMax and try again
-            alphaMax -= decrement;
-        }
-    }
-    return alphaMax;
-}
-//
+	std::cout << "lineSearch: " << std::endl;
+	double alphaMax = determineAlphaMax(xk, dk, map);
 
 	Eigen::VectorXd pk = xk + alpha * dk;
+	std::cout << "alphaMax: " << alphaMax << std::endl;
 
 	// Wolfe conditions
 	auto wolfe1 = [&]() {
@@ -269,7 +410,7 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	return alpha;
 }
 
-void TrianglesMapping::nextStep() {
+void TrianglesMapping::nextStep(Triangles& map) {
 	// Define the objective function
 	auto objFunc = [](const Eigen::VectorXd& x) -> double {
 		return x.squaredNorm();  // Example: simple quadratic function
@@ -281,7 +422,7 @@ void TrianglesMapping::nextStep() {
 	};
 
 	// Perform line search to find step size alpha
-	double alpha = lineSearch(xk_1, dk, objFunc, gradFunc);
+	double alpha = lineSearch(xk_1, dk, objFunc, gradFunc, map);
 
 	// Update the solution xk
 	xk = xk_1 + alpha * dk;
@@ -320,14 +461,14 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	}
 
 	if (weights == -1) {
-		weights = 1;
+		weights = 2;
 	}
 	
 	std::filesystem::path filepath = name;
 	std::string filepath_str_ext = filepath.extension().string();
 	std::string filepath_str_stem = filepath.stem().string();
 	const char* ext = filepath_str_ext.c_str();
-	stem = filepath_str_stem.c_str();
+	const char* stem = filepath_str_stem.c_str();
 	
 	char ext2[12] = ".geogram";
 	char method[20] = "_barycentre";
@@ -604,16 +745,30 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 	read_by_extension(map, mLocGlo);
 	for (int i = 0; i < max_iterations; ++i) {
     jacobian_rotation_area(mLocGlo);
+	std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
     update_weights();
+	std::cout << "update_weights();" << std::endl;
     least_squares();
-    nextStep();
+	std::cout << "least_squares();" << std::endl;
+    nextStep(mLocGlo);
+	std::cout << "nextStep(mLocGlo);" << std::endl;
+
+	std::filesystem::path filepath = map;
+	std::string filepath_str_ext = filepath.extension().string();
+	std::string filepath_str_stem = filepath.stem().string();
+	const char* ext = filepath_str_ext.c_str();
+	const char* stem = filepath_str_stem.c_str();
 
 	char ext2[12] = ".geogram";
-	char method[20] = "_local_global";
+	char method[20] = "_local_global_";
 	char attribute[20] = "_distortion_";
 	char numStr[20];
 	
-	strcpy(output_name, stem);
+	output_name[0] = '\0'; // Clear output_name
+	const char* first_space = strchr(stem, '_'); // Find the first space in stem
+	size_t first_word_length = first_space ? (size_t)(first_space - stem) : strlen(stem); // Calculate length of the first word
+	strncpy(output_name, stem, first_word_length);
+	output_name[first_word_length] = '\0'; // Ensure null-termination
 	strcat(output_name, method);
 	strcat(output_name, energy);
 	strcat(output_name, attribute);
@@ -622,6 +777,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 	strcat(output_name, ext2);
 
 	write_by_extension(output_name, mLocGlo);
+	std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
 	#ifdef _WIN32
 	// Open the generated mesh with Graphite
 	int result = system((getGraphitePath() + " " + output_name).c_str());

@@ -18,6 +18,9 @@
 #include <cmath>
 #include <functional>
 
+#include <eigen3/Eigen/Sparse>
+#include <eigen3/Eigen/IterativeLinearSolvers>
+
 
 
 #ifdef linux
@@ -71,10 +74,9 @@ private:
     Triangles mTut;
     Triangles mLocGlo;
     Eigen::MatrixXd EigenMap;
-    char output_name[65];
+    char output_name[120];
     char energy[65] = "arap";
     int max_iterations = 100;
-    const char* stem;
 
     int num_vertices;
 	int num_triangles;
@@ -90,15 +92,16 @@ private:
     void jacobian_rotation_area(Triangles& map);
     void update_weights();
     void least_squares();
-    void verify_flips(const Eigen::MatrixXd& V,
-				const Eigen::MatrixXi& F,
-				Triangles& map,
+    void verify_flips(Triangles& map,
 				std::vector<int>& ind_flip);
-    int flipsCount(const Eigen::MatrixXd& V,
-			const Eigen::MatrixXi& F,
-			Triangles& map);
-    double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk, std::function<double(const Eigen::VectorXd&)> objFunc, std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc);
-    void nextStep();
+    int flipsCount(Triangles& map);
+    double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+											Triangles& map);
+    double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+                      std::function<double(const Eigen::VectorXd&)> objFunc,
+                      std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc,
+					  Triangles& map);
+    void nextStep(Triangles& map);
 };
 
 
