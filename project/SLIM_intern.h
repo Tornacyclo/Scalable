@@ -73,6 +73,7 @@ private:
     char output_name[65];
     char energy[65] = "arap";
     int max_iterations = 100;
+    const char* stem;
 
     int num_vertices;
 	int num_triangles;

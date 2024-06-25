@@ -262,7 +262,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	std::string filepath_str_ext = filepath.extension().string();
 	std::string filepath_str_stem = filepath.stem().string();
 	const char* ext = filepath_str_ext.c_str();
-	const char* stem = filepath_str_stem.c_str();
+	stem = filepath_str_stem.c_str();
 	
 	char ext2[12] = ".geogram";
 	char method[20] = "_barycentre";
@@ -542,6 +542,28 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     update_weights();
     least_squares();
     nextStep();
+
+	char ext2[12] = ".geogram";
+	char method[20] = "_local_global";
+	char attribute[20] = "_distortion_";
+	char numStr[20];
+	
+	strcpy(output_name, stem);
+	strcat(output_name, method);
+	strcat(output_name, energy);
+	strcat(output_name, attribute);
+	sprintf(numStr, "%d", i);
+	strcat(output_name, numStr);
+	strcat(output_name, ext2);
+
+	write_by_extension(output_name, mLocGlo);
+	#ifdef _WIN32
+	// Open the generated mesh with Graphite
+	int result = system((getGraphitePath() + " " + output_name).c_str());
+	#endif
+	#ifdef linux
+	system((std::string("graphite ") + output_name).c_str());
+	#endif
 	}
 }
 
