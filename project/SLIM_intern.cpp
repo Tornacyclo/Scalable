@@ -296,8 +296,9 @@ void TrianglesMapping::least_squares() {
 		return;
 	}
 
-	// Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
-	Eigen::VectorXd xk = solver.solve(A.transpose() * b);
+	Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
+    // Eigen::VectorXd xk = solver.solve(b);
+	// Eigen::VectorXd xk = solver.solve(A.transpose() * b);
 
 	if(solver.info() != Eigen::Success) {
 		// Solving failed
@@ -759,36 +760,73 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         progress = std::round(static_cast<float>(vert) / nverts * 100000.0f) / 100000.0f * 100;
         DBOUT("Vertex " << vert << "/" << nverts << " (" << progress << " %) --- dim1: " << mOri.points[i][0] << ", dim2: " << mOri.points[i][1] << ", dim3: " << mOri.points[i][2] << std::endl);
     }
-
-    Eigen::VectorXd lhs = b_I - A_IB * x_B;
+    
+    // !! A DEBOGUER !!
+    /*Eigen::VectorXd lhs = b_I - A_IB * x_B;
     Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
     solver.compute(A_II);
     if (solver.info() != Eigen::Success) {
         // Decomposition failed
+        std::cerr << "Decomposition failed" << std::endl;
         return;
     }
     Eigen::VectorXd x_I = solver.solve(lhs);
     if (solver.info() != Eigen::Success) {
         // Solving failed
+        std::cerr << "Solving failed" << std::endl;
+        return;
+    }*/
+
+    // Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
+    // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver;
+   /*Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
+
+    // Regularization (if necessary)
+    double regularizationTerm = 1e-4; // Small positive value
+    for (int i = 0; i < A_II_A_BB.rows(); ++i) {
+        A_II_A_BB.coeffRef(i, i) += regularizationTerm;
+    }
+
+    solver.compute(A_II_A_BB);
+    if (solver.info() != Eigen::Success) {
+        std::cerr << "Decomposition failed" << std::endl;
         return;
     }
 
-    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver2;
-    solver2.compute(A_II_A_BB);
-    if (solver2.info() != Eigen::Success) {
+    Eigen::VectorXd x_I_full = solver.solve(lhsF);
+    if (solver.info() != Eigen::Success) {
+        std::cerr << "Solving failed" << std::endl;
+        return;
+    }*/
+
+   Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
+    solver.compute(A_II_A_BB);
+    if (solver.info() != Eigen::Success) {
         // Decomposition failed
-        return;
-    }
-    Eigen::VectorXd x_I_full = solver2.solve(lhsF);
-    if (solver2.info() != Eigen::Success) {
-        // Solving failed
+        std::cerr << "Decomposition failed" << std::endl;
         return;
     }
 
+    // Set higher precision by adjusting tolerance and max iterations
+    solver.setTolerance(1e-10);  // Set a tighter tolerance
+    solver.setMaxIterations(10000);  // Increase the maximum number of iterations
+
+    Eigen::VectorXd x_I_full = solver.solve(lhsF);
+    if (solver.info() != Eigen::Success) {
+        // Solving failed
+        std::cerr << "Solving failed" << std::endl;
+        return;
+    }
+
+    std::cout << x_I_full << std::endl;
     EigenMap = x_I_full;
 
     for (int plan : plane) {
         int re = x_I_(plan);
+        // mTut.points[plan][0] = x_I(re, 0);
+	    // mTut.points[plan][2] = x_I(re, 1);
+
         mTut.points[plan][0] = x_I_full(re + fixed, 0);
         mTut.points[plan][1] = cuttingSurface;
         mTut.points[plan][2] = x_I_full(re + fixed, 1);
@@ -796,16 +834,17 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     for (int blad : blade) {
         mTut.points[blad][1] = cuttingSurface;
     }
-    for (int plan : plane) {
-        int re = x_I_(plan);
-        mTut.points[plan][0] = x_I_full(re + fixed, 0);
-        mTut.points[plan][1] = x_I_full(re + fixed, 2);
-        mTut.points[plan][2] = x_I_full(re + fixed, 1);
-    }
-    for (int blad : blade) {
-        int re = x_B_(blad);
-        mTut.points[blad][1] = x_I_full(re, 2);
-    }
+
+    // for (int plan : plane) {
+    //     int re = x_I_(plan);
+    //     mTut.points[plan][0] = x_I_full(re + fixed, 0);
+    //     mTut.points[plan][1] = x_I_full(re + fixed, 2);
+    //     mTut.points[plan][2] = x_I_full(re + fixed, 1);
+    // }
+    // for (int blad : blade) {
+    //     int re = x_B_(blad);
+    //     mTut.points[blad][1] = x_I_full(re, 2);
+    // }
 
     FacetAttribute<double> fa2(mOri);
     for (auto f : mOri.iter_facets()) {
@@ -1335,15 +1374,8 @@ int main() {
         mTut.points[blad][0] = x_I(re, 0);
         mTut.points[blad][2] = x_I(re, 1);
     }*/
-    
-    
 
 
-    
-    
-	// ??????????????????????
-	// mTut.points[plan][0] = x_I(re, 0);
-	// mTut.points[plan][2] = x_I(re, 1);
 
 
     return 0;
