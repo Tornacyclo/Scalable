@@ -42,13 +42,16 @@ std::pair<Eigen::Vector3d, Eigen::Vector3d> TrianglesMapping::compute_gradients(
 		return std::make_pair(dudN, dvdN);
 }
 
-void TrianglesMapping::jacobian_rotation_area(Triangles& map) {
+void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 	num_vertices = map.nverts();
 	num_triangles = map.nfacets();
 	Dx = Eigen::MatrixXd::Zero(num_triangles, num_vertices);
 	Dy = Eigen::MatrixXd::Zero(num_triangles, num_vertices);
 	Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
 	xk_1 = Eigen::VectorXd::Zero(2 * num_triangles);
+
+	Jac.clear();
+	Rot.clear();
 	for (auto f : map.iter_facets()) {
 		int ind = 0;
 		Eigen::Matrix2d J_i;
@@ -80,8 +83,10 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map) {
 			Dx(ind, int(f.vertex(j))) = dudN(j);
 			Dy(ind, int(f.vertex(j))) = dvdN(j);
 
-			xk_1(int(f.vertex(j))) = f.vertex(j).pos()[0];
-			xk_1(int(f.vertex(j)) + num_vertices) = f.vertex(j).pos()[2];
+			if (!lineSearch) {
+				xk_1(int(f.vertex(j))) = f.vertex(j).pos()[0];
+				xk_1(int(f.vertex(j)) + num_vertices) = f.vertex(j).pos()[2];
+			}
 		}
 
 		Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos())); // Compute the square root of the area of the triangle
@@ -395,6 +400,35 @@ void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_li
 	}
 }
 
+void TrianglesMapping::computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
+    double h = 1e-5; // small step for finite differences
+    double original_energy;
+    
+    // Compute the original energy at x
+    for (auto v : map.iter_vertices()) {
+        v.pos()[0] = x(int(v));
+        v.pos()[2] = x(int(v) + num_vertices);
+    }
+    jacobian_rotation_area(map, true);
+    add_energies_jacobians(original_energy, true);
+
+    // Iterate over each dimension of x to compute the partial derivative
+    for (int i = 0; i < x.size(); ++i) {
+        Eigen::VectorXd x_plus_h = x;
+        x_plus_h[i] += h;
+
+        double new_energy;
+        for (auto v : map.iter_vertices()) {
+            v.pos()[0] = x_plus_h(int(v));
+            v.pos()[2] = x_plus_h(int(v) + num_vertices);
+        }
+        jacobian_rotation_area(map, true);
+        add_energies_jacobians(new_energy, true);
+
+        grad[i] = (new_energy - original_energy) / h;
+    }
+}
+
 double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       Triangles& map) {
     // Line search using Wolfe conditions
@@ -409,40 +443,21 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
 
     double ener, new_ener;
     add_energies_jacobians(ener, true);
-	auto computeGradient = [&](const Eigen::VectorXd& x) {
-        Eigen::VectorXd grad_x = Eigen::VectorXd::Zero(num_vertices);
-        for (auto f : map.iter_facets()) {
-			int ind = 0;
-            for (int j = 0; j < 3; ++j) {
-                grad_x(int(f.vertex(j))) += Dx(ind, int(f.vertex(j)));
-                grad_x(int(f.vertex(j)) + num_vertices) += Dy(ind, int(f.vertex(j)));
-            }
-			ind++;
-        }
-        return grad_x;
-    };
-    Eigen::VectorXd grad_xk = computeGradient(xk);
     
-	for (auto v : map.iter_vertices()) {
+    // Compute gradient of xk
+    Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk.size());
+    computeGradient(xk, grad_xk, map);
+    
+    for (auto v : map.iter_vertices()) {
         v.pos()[0] = pk(int(v));
         v.pos()[2] = pk(int(v) + num_vertices);
     }
-	add_energies_jacobians(new_ener, true);
-    for (auto f : map.iter_facets()) {
-		int ind = 0;
-        double u1 = f.vertex(0).pos()[0], v1 = f.vertex(0).pos()[2];
-        double u2 = f.vertex(1).pos()[0], v2 = f.vertex(1).pos()[2];
-        double u3 = f.vertex(2).pos()[0], v3 = f.vertex(2).pos()[2];
-        auto gradients = compute_gradients(u1, v1, u2, v2, u3, v3);
-        Eigen::Vector3d dudN = gradients.first;
-        Eigen::Vector3d dvdN = gradients.second;
-        for (int j = 0; j < 3; ++j) {
-            Dx(ind, int(f.vertex(j))) = dudN(j);
-            Dy(ind, int(f.vertex(j))) = dvdN(j);
-        }
-		ind++;
-    }
-    Eigen::VectorXd grad_pk = computeGradient(pk);
+    jacobian_rotation_area(map, true);
+    add_energies_jacobians(new_ener, true);
+    
+    // Compute gradient of pk
+    Eigen::VectorXd grad_pk = Eigen::VectorXd::Zero(pk.size());
+    computeGradient(pk, grad_pk, map);
 
     // Wolfe conditions
     auto wolfe1 = [&]() {
@@ -465,6 +480,17 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
     while (alphaHigh - alphaLow > 1e-8) {
         alpha = (alphaLow + alphaHigh) / 2.0;
         pk = xk + alpha * dk;
+
+        // Update pk positions
+        for (auto v : map.iter_vertices()) {
+            v.pos()[0] = pk(int(v));
+            v.pos()[2] = pk(int(v) + num_vertices);
+        }
+        jacobian_rotation_area(map, true);
+        add_energies_jacobians(new_ener, true);
+
+        // Compute gradient of pk
+        computeGradient(pk, grad_pk, map);
 
         if (!wolfe1()) {
             alphaHigh = alpha;
@@ -802,7 +828,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 	read_by_extension(map, mLocGlo);
 	for (int i = 0; i < max_iterations; ++i) {
-    jacobian_rotation_area(mLocGlo);
+    jacobian_rotation_area(mLocGlo, false);
 	std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
     update_weights();
 	std::cout << "update_weights();" << std::endl;

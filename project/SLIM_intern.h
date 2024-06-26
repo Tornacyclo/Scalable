@@ -77,7 +77,7 @@ private:
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
     void Tut63(const int acount, char** avariable);
     std::pair<Eigen::Vector3d, Eigen::Vector3d> compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
-    void jacobian_rotation_area(Triangles& map);
+    void jacobian_rotation_area(Triangles& map, bool lineSearch);
     void update_weights();
     void least_squares();
     void verify_flips(Triangles& map,
@@ -86,6 +86,7 @@ private:
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
     void add_energies_jacobians(double& norm_arap_e, bool flips_linesearch);
+    void computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       Triangles& map);
     void nextStep(Triangles& map);
