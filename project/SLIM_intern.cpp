@@ -429,6 +429,29 @@ void TrianglesMapping::computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd
     }
 }
 
+void TrianglesMapping::computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
+    // Ensure grad is the correct size
+    grad.resize(x.size());
+    grad.setZero();
+    
+    // Reset vertex positions according to x
+    for (auto v : map.iter_vertices()) {
+        v.pos()[0] = x(int(v));
+        v.pos()[2] = x(int(v) + num_vertices);
+    }
+    
+    // Compute the energy and its gradient (Jacobian)
+    jacobian_rotation_area(map, true); // This function should set the internal state needed for gradients
+
+    // Accumulate the gradients into the grad vector
+    for (int t = 0; t < num_triangles; ++t) {
+        for (int v = 0; v < num_vertices; ++v) {
+            grad[v] += Dx(t, v);
+            grad[v + num_vertices] += Dy(t, v);
+        }
+    }
+}
+
 double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       Triangles& map) {
     // Line search using Wolfe conditions
@@ -446,7 +469,8 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
     
     // Compute gradient of xk
     Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk.size());
-    computeGradient(xk, grad_xk, map);
+    // computeGradient(xk, grad_xk, map);
+	computeAnalyticalGradient(xk, grad_xk, map);
     
     for (auto v : map.iter_vertices()) {
         v.pos()[0] = pk(int(v));
@@ -457,7 +481,8 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
     
     // Compute gradient of pk
     Eigen::VectorXd grad_pk = Eigen::VectorXd::Zero(pk.size());
-    computeGradient(pk, grad_pk, map);
+    // computeGradient(pk, grad_pk, map);
+	computeAnalyticalGradient(pk, grad_pk, map);
 
     // Wolfe conditions
     auto wolfe1 = [&]() {
@@ -492,7 +517,8 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
         add_energies_jacobians(new_ener, true);
 
         // Compute gradient of pk
-        computeGradient(pk, grad_pk, map);
+        // computeGradient(pk, grad_pk, map);
+		computeAnalyticalGradient(pk, grad_pk, map)
 
         if (!wolfe1()) {
             alphaHigh = alpha;

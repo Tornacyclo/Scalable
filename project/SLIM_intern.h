@@ -16,7 +16,6 @@
 #include <thread>
 #include <chrono>
 #include <cmath>
-#include <functional>
 
 #include <eigen3/Eigen/Sparse>
 #include <eigen3/Eigen/IterativeLinearSolvers>
@@ -87,6 +86,7 @@ private:
 											Triangles& map);
     void add_energies_jacobians(double& norm_arap_e, bool flips_linesearch);
     void computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
+    void computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       Triangles& map);
     void nextStep(Triangles& map);
