@@ -473,11 +473,13 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
         return alpha;
     }
 
-    // Bisection line search
+    // Bisection line search with max_iter limit
     double alphaLow = 0.0;
     double alphaHigh = alphaMax;
+    int max_iter = 100; // Maximum number of iterations
+    int iter = 0; // Current iteration
 
-    while (alphaHigh - alphaLow > 1e-8) {
+    while (alphaHigh - alphaLow > 1e-8 && iter < max_iter) {
         alpha = (alphaLow + alphaHigh) / 2.0;
         pk = xk + alpha * dk;
 
@@ -499,6 +501,7 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
         } else {
             break;
         }
+        iter++; // Increment iteration counter
     }
 
     return alpha;
