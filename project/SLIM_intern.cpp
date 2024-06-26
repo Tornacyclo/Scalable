@@ -288,7 +288,7 @@ void TrianglesMapping::least_squares() {
 
 	// Use an iterative solver
 	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver;
-	solver.compute(A);
+	solver.compute(A.transpose() * A);
 
 	if(solver.info() != Eigen::Success) {
 		// Decomposition failed
@@ -296,7 +296,8 @@ void TrianglesMapping::least_squares() {
 		return;
 	}
 
-	Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
+	// Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
+	Eigen::VectorXd xk = solver.solve(A.transpose() * b);
 
 	if(solver.info() != Eigen::Success) {
 		// Solving failed
@@ -552,306 +553,288 @@ void TrianglesMapping::nextStep(Triangles& map) {
 }
 
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
-	const char* name = nullptr; int weights = -1;
-	if (acount > 1) {
-		for (int i = 1; i < acount; ++i) {
-			if (strlen(avariable[i]) == 1) {
-				weights = atoi(avariable[i]);
-			}
-			else if (strlen(avariable[i]) > 1) {
-				name = avariable[i];
-			}
-        	}
-	}
-	
-	if (name == nullptr) {
-		#ifdef _WIN32
-		name = "mesh_test/hemisphere.obj";
-		#endif
-		#ifdef linux
-		name = "project/mesh_test/hemisphere.obj";
-		#endif
-	}
+    const char* name = nullptr;
+    int weights = -1;
+    if (acount > 1) {
+        for (int i = 1; i < acount; ++i) {
+            if (strlen(avariable[i]) == 1) {
+                weights = atoi(avariable[i]);
+            } else if (strlen(avariable[i]) > 1) {
+                name = avariable[i];
+            }
+        }
+    }
 
-	if (weights == -1) {
-		weights = 2;
-	}
-	
-	std::filesystem::path filepath = name;
-	std::string filepath_str_ext = filepath.extension().string();
-	std::string filepath_str_stem = filepath.stem().string();
-	const char* ext = filepath_str_ext.c_str();
-	const char* stem = filepath_str_stem.c_str();
-	
-	char ext2[12] = ".geogram";
-	char method[20] = "_barycentre";
-	char weight1[20] = "_uniform";
-	char weight2[20] = "_cotan";
-	char attribute[20] = "_distortion";
-	
-	
-	strcpy(output_name, stem);
-	strcat(output_name, method);
-	if (weights == 1) {
-	strcat(output_name, weight1);
-	}
-	else if (weights == 2) {
-	strcat(output_name, weight2);
-	}
-	strcat(output_name, attribute);
-	strcat(output_name, ext2);
+    if (name == nullptr) {
+        #ifdef _WIN32
+        name = "mesh_test/hemisphere.obj";
+        #endif
+        #ifdef linux
+        name = "project/mesh_test/hemisphere.obj";
+        #endif
+    }
 
-	read_by_extension(name, mTut);
-	read_by_extension(name, mOri);
-	double maxH = mTut.points[0][1];
-	double minH = mTut.points[0][1];
-	int nverts = mTut.nverts();
-	for (int i = 0; i < mTut.nverts(); i++) {
-	if (mTut.points[i][1] < minH) {
-		minH = mTut.points[i][1];
-	}
-	else if (mTut.points[i][1] > maxH) {
-		maxH = mTut.points[i][1];
-	}
-	}
-	double cuttingSurface = 0.;
-	double margin = 1.0 / nverts * 100;
-	double dcuttingSurface = (maxH - minH)*margin;
+    if (weights == -1) {
+        weights = 2;
+    }
 
-	DBOUT("The number of vertices is: " << mTut.nverts() << ", facets: " << mTut.nfacets() << ", corners: " << mTut.ncorners() << std::endl);
+    std::filesystem::path filepath = name;
+    std::string filepath_str_ext = filepath.extension().string();
+    std::string filepath_str_stem = filepath.stem().string();
+    const char* ext = filepath_str_ext.c_str();
+    const char* stem = filepath_str_stem.c_str();
 
-	mOri.connect();
-	mTut.connect();
+    char ext2[12] = ".geogram";
+    char method[20] = "_barycentre";
+    char weight1[20] = "_uniform";
+    char weight2[20] = "_cotan";
+    char attribute[20] = "_distortion";
 
-	int fixed = 0;
-	std::set<int> blade;
-	Eigen::MatrixXd x_B_ = Eigen::MatrixXd::Zero(nverts, 1);
-	for (int i = 0; i < mTut.nverts(); i++) {
-	Surface::Vertex vi = Surface::Vertex(mOri, i);
-	if (vi.pos()[1] <= cuttingSurface+dcuttingSurface && vi.pos()[1] >= cuttingSurface-dcuttingSurface) {
-	    
-	    Surface::Vertex vi = Surface::Vertex(mOri, i);
-	    blade.insert(vi);
-	    x_B_(i, 0) = fixed;
-	    fixed++;
-	}
-	}
+    strcpy(output_name, stem);
+    strcat(output_name, method);
+    if (weights == 1) {
+        strcat(output_name, weight1);
+    } else if (weights == 2) {
+        strcat(output_name, weight2);
+    }
+    strcat(output_name, attribute);
+    strcat(output_name, ext2);
 
-	Eigen::MatrixXd x_I_ = Eigen::MatrixXd::Zero(nverts, 1);
-	int insider = 0;
-	std::set<int> plane;
-	for (int i = 0; i < mTut.nverts(); i++) {
-	Surface::Vertex vi = Surface::Vertex(mOri, i);
-	if (vi.pos()[1] <= cuttingSurface-dcuttingSurface || vi.pos()[1] >= cuttingSurface+dcuttingSurface) {
-	    
-	    plane.insert(vi);
-	    x_I_(i, 0) = insider;
-	    insider++;
-	}
-	}
+    read_by_extension(name, mTut);
+    read_by_extension(name, mOri);
+    double maxH = mTut.points[0][1];
+    double minH = mTut.points[0][1];
+    int nverts = mTut.nverts();
+    for (int i = 0; i < mTut.nverts(); i++) {
+        if (mTut.points[i][1] < minH) {
+            minH = mTut.points[i][1];
+        } else if (mTut.points[i][1] > maxH) {
+            maxH = mTut.points[i][1];
+        }
+    }
+    double cuttingSurface = 0.;
+    double margin = 1.0 / nverts * 100;
+    double dcuttingSurface = (maxH - minH) * margin;
 
-	Eigen::MatrixXd A_II = Eigen::MatrixXd::Zero(nverts-fixed, nverts-fixed);
-	Eigen::MatrixXd A_IB = Eigen::MatrixXd::Zero(nverts-fixed, fixed);
-	Eigen::MatrixXd b_I = Eigen::MatrixXd::Zero(nverts - fixed, 2);
-	Eigen::MatrixXd x_B = Eigen::MatrixXd::Zero(fixed, 2);
+    DBOUT("The number of vertices is: " << mTut.nverts() << ", facets: " << mTut.nfacets() << ", corners: " << mTut.ncorners() << std::endl);
 
+    mOri.connect();
+    mTut.connect();
 
+    int fixed = 0;
+    std::set<int> blade;
+    Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
+    for (int i = 0; i < mTut.nverts(); i++) {
+        Surface::Vertex vi = Surface::Vertex(mOri, i);
+        if (vi.pos()[1] <= cuttingSurface + dcuttingSurface && vi.pos()[1] >= cuttingSurface - dcuttingSurface) {
+            blade.insert(vi);
+            x_B_(i) = fixed;
+            fixed++;
+        }
+    }
 
-	Eigen::MatrixXd A_II_A_BB = Eigen::MatrixXd::Zero(nverts, nverts);
-	for (int i = 0; i < fixed; ++i) {
-	A_II_A_BB(i, i) = 1;
-	}
+    Eigen::VectorXd x_I_ = Eigen::VectorXd::Zero(nverts);
+    int insider = 0;
+    std::set<int> plane;
+    for (int i = 0; i < mTut.nverts(); i++) {
+        Surface::Vertex vi = Surface::Vertex(mOri, i);
+        if (vi.pos()[1] <= cuttingSurface - dcuttingSurface || vi.pos()[1] >= cuttingSurface + dcuttingSurface) {
+            plane.insert(vi);
+            x_I_(i) = insider;
+            insider++;
+        }
+    }
 
-	Eigen::MatrixXd lhsF = Eigen::MatrixXd::Zero(nverts, 3);
+    Eigen::SparseMatrix<double> A_II(nverts - fixed, nverts - fixed);
+    Eigen::SparseMatrix<double> A_IB(nverts - fixed, fixed);
+    Eigen::VectorXd b_I = Eigen::VectorXd::Zero(nverts - fixed);
+    Eigen::MatrixXd x_B = Eigen::MatrixXd::Zero(fixed, 2);
 
+    Eigen::SparseMatrix<double> A_II_A_BB(nverts, nverts);
+    for (int i = 0; i < fixed; ++i) {
+        A_II_A_BB.insert(i, i) = 1;
+    }
 
+    Eigen::MatrixXd lhsF = Eigen::MatrixXd::Zero(nverts, 3);
 
-	int vert = 0;
-	int bb = 0;
-	double progress = 0;
-	for (int i = 0; i < mTut.nverts(); i++) {
-	Surface::Vertex vi = Surface::Vertex(mOri, i);
-	if (vi.pos()[1] <= cuttingSurface+dcuttingSurface && vi.pos()[1] >= cuttingSurface-dcuttingSurface) {
-	    x_B(bb, 0) = mOri.points[i][0];
-	    x_B(bb, 1) = mOri.points[i][2];
-	    
-	    
-	    lhsF(bb, 0) = mOri.points[i][0];
-	    lhsF(bb, 1) = mOri.points[i][2];
-	    
-	    
-	    bb++;
-	}
-	else {
-		Surface::Halfedge depart = Surface::Vertex(mOri, i).halfedge();
-		Surface::Halfedge variable = depart;
-		double count = 0;
-		std::vector<int> neighbors;
-		if (weights == 1) {
-		    std::map<int, double> cotan;
-		    if (depart.opposite().active())
-			variable = variable.opposite().next();
-		    neighbors.push_back(depart.to());
-		    cotan.insert(std::make_pair(neighbors.back(), 1));
-		    count += 1;
-		    while (depart != variable && variable.active()) {
-			neighbors.push_back(variable.to());
-			cotan.insert(std::make_pair(neighbors.back(), 1));
+    int vert = 0;
+    int bb = 0;
+    double progress = 0;
+    for (int i = 0; i < mTut.nverts(); i++) {
+        Surface::Vertex vi = Surface::Vertex(mOri, i);
+        if (vi.pos()[1] <= cuttingSurface + dcuttingSurface && vi.pos()[1] >= cuttingSurface - dcuttingSurface) {
+            x_B(bb, 0) = mOri.points[i][0];
+            x_B(bb, 1) = mOri.points[i][2];
 
-			count += 1;
-			if (!variable.opposite().active())
-			    break;
-			variable = variable.opposite().next();
-		    }
+            lhsF(bb, 0) = mOri.points[i][0];
+            lhsF(bb, 1) = mOri.points[i][2];
 
-		    int ree = x_I_(i, 0);
-		    A_II(ree, ree) = -count;
-		    
-		    
-		    A_II_A_BB(ree + fixed, ree + fixed) = -count;
-		    
-		    for (auto const& [key, val] : cotan)
-			{
-				if (blade.contains(key)) {
-				    int re_ne2 = x_B_(key, 0);
-				    A_IB(ree, re_ne2) = val;
-				    
-				    
-				    A_II_A_BB(ree+fixed, re_ne2) = val;
-				}
-				else {
-				    int re_ne = x_I_(key, 0);
-				    A_II(ree, re_ne) = val;
-				    
-				    
-				    A_II_A_BB(ree + fixed, re_ne + fixed) = val;
-				}
-			}
-		    
-	    }
-	    
-		else if (weights == 2) {
-		    std::map<int, double> cotan;
-		    if (depart.opposite().active())
-			variable = variable.opposite().next();
-		    
-		    
-		    double cotan_alpha = calculateCotan(depart.next().from().pos(), depart.next().to().pos(), depart.prev().to().pos(), depart.prev().from().pos());
-		    double cotan_beta = calculateCotan(depart.opposite().prev().to().pos(), depart.opposite().prev().from().pos(), depart.opposite().next().from().pos(), depart.opposite().next().to().pos());
-		    double cotan_gamma = calculateCotan(depart.next().to().pos(), depart.next().from().pos(), depart.from().pos(), depart.to().pos());
-		    
-		    double w_ij = cotan_alpha + cotan_beta;
-		    double voronoi = 0.125 * (cotan_gamma*(depart.from().pos() - depart.to().pos()).norm2() + cotan_alpha*(depart.prev().to().pos() - depart.prev().from().pos()).norm2());
-		    
-		    neighbors.push_back(depart.to());
-		    cotan.insert(std::make_pair(neighbors.back(), w_ij));
-		    count += w_ij;
-		    
-		    while (depart != variable && variable.active()) {
-			cotan_alpha = calculateCotan(variable.next().from().pos(), variable.next().to().pos(), variable.prev().to().pos(), variable.prev().from().pos());
-			cotan_beta = calculateCotan(variable.opposite().prev().to().pos(), variable.opposite().prev().from().pos(), variable.opposite().next().from().pos(), variable.opposite().next().to().pos());
-			cotan_gamma = calculateCotan(variable.next().to().pos(), variable.next().from().pos(), variable.from().pos(), variable.to().pos());
-			
-			w_ij = cotan_alpha + cotan_beta;
-			voronoi += 0.125 * (cotan_gamma*(variable.from().pos() - variable.to().pos()).norm2() + cotan_alpha*(variable.prev().to().pos() - variable.prev().from().pos()).norm2());
-			
-			neighbors.push_back(variable.to());
-			cotan.insert(std::make_pair(neighbors.back(), w_ij));
-			count += w_ij;
-			if (!variable.opposite().active())
-			    break;
-			variable = variable.opposite().next();
-		    }
+            bb++;
+        } else {
+            Surface::Halfedge depart = Surface::Vertex(mOri, i).halfedge();
+            Surface::Halfedge variable = depart;
+            double count = 0;
+            std::vector<int> neighbors;
+            if (weights == 1) {
+                std::map<int, double> cotan;
+                if (depart.opposite().active())
+                    variable = variable.opposite().next();
+                neighbors.push_back(depart.to());
+                cotan.insert(std::make_pair(neighbors.back(), 1));
+                count += 1;
+                while (depart != variable && variable.active()) {
+                    neighbors.push_back(variable.to());
+                    cotan.insert(std::make_pair(neighbors.back(), 1));
+                    count += 1;
+                    if (!variable.opposite().active())
+                        break;
+                    variable = variable.opposite().next();
+                }
 
-		    int ree = x_I_(i, 0);
-		    A_II(ree, ree) = -count / (2*voronoi);
-		    
-		    
-		    A_II_A_BB(ree + fixed, ree + fixed) = -count / (2*voronoi);
-		    
-		    for (auto const& [key, val] : cotan)
-			{
-				if (blade.contains(key)) {
-				    int re_ne2 = x_B_(key, 0);
-				    A_IB(ree, re_ne2) = val / (2*voronoi);
-				    
-				    
-				    A_II_A_BB(ree+fixed, re_ne2) = val / (2*voronoi);
-				}
-				else {
-				    int re_ne = x_I_(key, 0);
-				    A_II(ree, re_ne) = val / (2*voronoi);
-				    
-				    
-				    A_II_A_BB(ree + fixed, re_ne + fixed) = val / (2*voronoi);
-				}
-			}
-		}
-	    
-	}
-	vert++;
-	progress = std::round(static_cast<float>(vert) / nverts * 100000.0f) / 100000.0f * 100;
-	DBOUT("Vertex " << vert << "/" << nverts << " (" << progress << " %) --- dim1: " << mOri.points[i][0] << ", dim2: " << mOri.points[i][1] << ", dim3: " << mOri.points[i][2] << std::endl);
-	}
+                int ree = x_I_(i);
+                A_II.insert(ree, ree) = -count;
+                A_II_A_BB.insert(ree + fixed, ree + fixed) = -count;
 
-	/*Eigen::MatrixXd lhs = b_I - A_IB * x_B;
-	Eigen::MatrixXd x_I = A_II.colPivHouseholderQr().solve(lhs);*/
-	
-	Eigen::MatrixXd x_I = A_II_A_BB.colPivHouseholderQr().solve(lhsF);
+                for (auto const& [key, val] : cotan) {
+                    if (blade.contains(key)) {
+                        int re_ne2 = x_B_(key);
+                        A_IB.insert(ree, re_ne2) = val;
+                        A_II_A_BB.insert(ree + fixed, re_ne2) = val;
+                    } else {
+                        int re_ne = x_I_(key);
+                        A_II.insert(ree, re_ne) = val;
+                        A_II_A_BB.insert(ree + fixed, re_ne + fixed) = val;
+                    }
+                }
+            } else if (weights == 2) {
+                std::map<int, double> cotan;
+                if (depart.opposite().active())
+                    variable = variable.opposite().next();
 
-	EigenMap = x_I;
+                double cotan_alpha = calculateCotan(depart.next().from().pos(), depart.next().to().pos(), depart.prev().to().pos(), depart.prev().from().pos());
+                double cotan_beta = calculateCotan(depart.opposite().prev().to().pos(), depart.opposite().prev().from().pos(), depart.opposite().next().from().pos(), depart.opposite().next().to().pos());
+                double cotan_gamma = calculateCotan(depart.next().to().pos(), depart.next().from().pos(), depart.from().pos(), depart.to().pos());
 
-	for (int plan : plane) {
-	int re = (x_I_(plan, 0));
-	/*mTut.points[plan][0] = x_I(re, 0);
-	mTut.points[plan][2] = x_I(re, 1);*/
-	mTut.points[plan][0] = x_I(re + fixed, 0);
-	mTut.points[plan][1] = cuttingSurface;
-	mTut.points[plan][2] = x_I(re + fixed, 1);
-	}
-	for (int blad : blade) {
-	mTut.points[blad][1] = cuttingSurface;
-	}
-	/*for (int plan : plane) {
-	int re = (x_I_(plan, 0));
-	mTut.points[plan][0] = x_I(re + fixed, 0);
-	mTut.points[plan][1] = x_I(re + fixed, 2);
-	mTut.points[plan][2] = x_I(re + fixed, 1);
-	}
-	for (int blad : blade) {
-	int re = (x_B_(blad, 0));
-	mTut.points[blad][1] = x_I(re, 2);
-	}*/
-	FacetAttribute<double> fa2(mOri);
-	for (auto f : mOri.iter_facets()) {
-	fa2[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
-	}
+                double w_ij = cotan_alpha + cotan_beta;
+                double voronoi = 0.125 * (cotan_gamma * (depart.from().pos() - depart.to().pos()).norm2() + cotan_alpha * (depart.prev().to().pos() - depart.prev().from().pos()).norm2());
 
-	CornerAttribute<double> he(mTut);
-	for (auto f : mTut.iter_halfedges()) {
-	if (blade.contains(f.from()) || blade.contains(f.to()))
-		he[f] = 404;
-	else {
-		he[f] = 0;
-	}
-	}
+                neighbors.push_back(depart.to());
+                cotan.insert(std::make_pair(neighbors.back(), w_ij));
+                count += w_ij;
 
-	FacetAttribute<double> fa(mTut);
-	for (auto f : mTut.iter_facets()) {
-	fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
-	}
+                while (depart != variable && variable.active()) {
+                    cotan_alpha = calculateCotan(variable.next().from().pos(), variable.next().to().pos(), variable.prev().to().pos(), variable.prev().from().pos());
+                    cotan_beta = calculateCotan(variable.opposite().prev().to().pos(), variable.opposite().prev().from().pos(), variable.opposite().next().from().pos(), variable.opposite().next().to().pos());
+                    cotan_gamma = calculateCotan(variable.next().to().pos(), variable.next().from().pos(), variable.from().pos(), variable.to().pos());
 
+                    w_ij = cotan_alpha + cotan_beta;
+                    voronoi += 0.125 * (cotan_gamma * (variable.from().pos() - variable.to().pos()).norm2() + cotan_alpha * (variable.prev().to().pos() - variable.prev().from().pos()).norm2());
 
-	write_by_extension(output_name, mTut, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
+                    neighbors.push_back(variable.to());
+                    cotan.insert(std::make_pair(neighbors.back(), w_ij));
+                    count += w_ij;
+                    if (!variable.opposite().active())
+                        break;
+                    variable = variable.opposite().next();
+                }
 
+                int ree = x_I_(i);
+                A_II.insert(ree, ree) = -count / (2 * voronoi);
+                A_II_A_BB.insert(ree + fixed, ree + fixed) = -count / (2 * voronoi);
 
-	#ifdef _WIN32
-	// Open the generated mesh with Graphite
-	int result = system((getGraphitePath() + " " + output_name).c_str());
-	#endif
-	#ifdef linux
-	system((std::string("graphite ") + output_name).c_str());
-	#endif
+                for (auto const& [key, val] : cotan) {
+                    if (blade.contains(key)) {
+                        int re_ne2 = x_B_(key);
+                        A_IB.insert(ree, re_ne2) = val / (2 * voronoi);
+                        A_II_A_BB.insert(ree + fixed, re_ne2) = val / (2 * voronoi);
+                    } else {
+                        int re_ne = x_I_(key);
+                        A_II.insert(ree, re_ne) = val / (2 * voronoi);
+                        A_II_A_BB.insert(ree + fixed, re_ne + fixed) = val / (2 * voronoi);
+                    }
+                }
+            }
+        }
+        vert++;
+        progress = std::round(static_cast<float>(vert) / nverts * 100000.0f) / 100000.0f * 100;
+        DBOUT("Vertex " << vert << "/" << nverts << " (" << progress << " %) --- dim1: " << mOri.points[i][0] << ", dim2: " << mOri.points[i][1] << ", dim3: " << mOri.points[i][2] << std::endl);
+    }
+
+    Eigen::VectorXd lhs = b_I - A_IB * x_B;
+    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+    solver.compute(A_II);
+    if (solver.info() != Eigen::Success) {
+        // Decomposition failed
+        return;
+    }
+    Eigen::VectorXd x_I = solver.solve(lhs);
+    if (solver.info() != Eigen::Success) {
+        // Solving failed
+        return;
+    }
+
+    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver2;
+    solver2.compute(A_II_A_BB);
+    if (solver2.info() != Eigen::Success) {
+        // Decomposition failed
+        return;
+    }
+    Eigen::VectorXd x_I_full = solver2.solve(lhsF);
+    if (solver2.info() != Eigen::Success) {
+        // Solving failed
+        return;
+    }
+
+    EigenMap = x_I_full;
+
+    for (int plan : plane) {
+        int re = x_I_(plan);
+        mTut.points[plan][0] = x_I_full(re + fixed, 0);
+        mTut.points[plan][1] = cuttingSurface;
+        mTut.points[plan][2] = x_I_full(re + fixed, 1);
+    }
+    for (int blad : blade) {
+        mTut.points[blad][1] = cuttingSurface;
+    }
+    for (int plan : plane) {
+        int re = x_I_(plan);
+        mTut.points[plan][0] = x_I_full(re + fixed, 0);
+        mTut.points[plan][1] = x_I_full(re + fixed, 2);
+        mTut.points[plan][2] = x_I_full(re + fixed, 1);
+    }
+    for (int blad : blade) {
+        int re = x_B_(blad);
+        mTut.points[blad][1] = x_I_full(re, 2);
+    }
+
+    FacetAttribute<double> fa2(mOri);
+    for (auto f : mOri.iter_facets()) {
+        fa2[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+    }
+
+    CornerAttribute<double> he(mTut);
+    for (auto f : mTut.iter_halfedges()) {
+        if (blade.contains(f.from()) || blade.contains(f.to())) {
+            he[f] = 404;
+        } else {
+            he[f] = 0;
+        }
+    }
+
+    FacetAttribute<double> fa(mTut);
+    for (auto f : mTut.iter_facets()) {
+        fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
+    }
+
+    write_by_extension(output_name, mTut, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
+
+    #ifdef _WIN32
+    // Open the generated mesh with Graphite
+    int result = system((getGraphitePath() + " " + output_name).c_str());
+    #endif
+    #ifdef linux
+    system((std::string("graphite ") + output_name).c_str());
+    #endif
 }
 
 void TrianglesMapping::LocalGlobalParametrization(const char* map) {
@@ -1354,9 +1337,13 @@ int main() {
     }*/
     
     
-    
-    
 
+
+    
+    
+	// ??????????????????????
+	// mTut.points[plan][0] = x_I(re, 0);
+	// mTut.points[plan][2] = x_I(re, 1);
 
 
     return 0;
