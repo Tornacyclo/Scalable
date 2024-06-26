@@ -518,7 +518,7 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
 
         // Compute gradient of pk
         // computeGradient(pk, grad_pk, map);
-		computeAnalyticalGradient(pk, grad_pk, map)
+		computeAnalyticalGradient(pk, grad_pk, map);
 
         if (!wolfe1()) {
             alphaHigh = alpha;
