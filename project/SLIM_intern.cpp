@@ -362,67 +362,125 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	return alphaMax;
 }
 
-double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
-                      std::function<double(const Eigen::VectorXd&)> objFunc,
-                      std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc,
-					  Triangles& map) {
-	// Line search using Wolfe conditions
-	double alpha = 1.0;
-	double c1 = 1e-4;
-	double c2 = 0.9;
-	std::cout << "lineSearch: " << std::endl;
-	double alphaMax = determineAlphaMax(xk, dk, map);
+void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_linesearch) {
+	// schaeffer_e = log_e = conf_e = amips = 0;
+	norm_arap_e = 0;
+	for (int i = 0; i < num_triangles; i++) {
+		Eigen::JacobiSVD<Eigen::Matrix2d> svd(Jac[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
+		Eigen::Matrix2d Ui = svd.matrixU();
+		Eigen::Matrix2d Vi = svd.matrixV();
+		Eigen::Vector2d singu = svd.singularValues();
 
-	Eigen::VectorXd pk = xk + alpha * dk;
-	std::cout << "alphaMax: " << alphaMax << std::endl;
+		double s1 = singu(0); double s2 = singu(1);
 
-	// Wolfe conditions
-	auto wolfe1 = [&]() {
-		return objFunc(pk) <= objFunc(xk) + c1 * alpha * gradFunc(xk).dot(dk);
-	};
-
-	auto wolfe2 = [&]() {
-		return gradFunc(pk).dot(dk) >= c2 * gradFunc(xk).dot(dk);
-	};
-
-	// Initial check
-	if (wolfe1() && wolfe2()) {
-		return alpha;
-	}
-
-	// Bisection line search
-	double alphaLow = 0.0;
-	double alphaHigh = alphaMax;
-
-	while (alphaHigh - alphaLow > 1e-8) {
-		alpha = (alphaLow + alphaHigh) / 2.0;
-		pk = xk + alpha * dk;
-
-		if (!wolfe1()) {
-			alphaHigh = alpha;
-		} else if (!wolfe2()) {
-			alphaLow = alpha;
+		if (flips_linesearch) {
+			// schaeffer_e += Af(i, i) * (pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2));
+			// log_e += Af(i, i) * (pow(log(s1),2) + pow(log(s2),2));
+			// double sigma_geo_avg = sqrt(s1*s2);
+			//conf_e += Af(i, i) * (pow(log(s1/sigma_geo_avg),2) + pow(log(s2/sigma_geo_avg),2));
+			// conf_e += Af(i, i) * ( (pow(s1,2)+pow(s2,2))/(2*s1*s2) );
+			norm_arap_e += Af(i, i) * (pow(s1-1,2) + pow(s2-1,2));
+			// amips +=  Af(i, i) * exp(exp_factor* (  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) );
+			// exp_symmd += Af(i, i) * exp(exp_factor*(pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2)));
+			//amips +=  Af(i, i) * exp(  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) ;
 		} else {
-			break;
+			if (Ui.determinant() * Vi.determinant() > 0) {
+			norm_arap_e += Af(i, i) * (pow(s1-1,2) + pow(s2-1,2));
+			} else {
+			// it is the distance form the flipped thing, this is slow, usefull only for debugging normal arap
+			Vi.col(1) *= -1;
+			norm_arap_e += Af(i, i) * (Jac[i]-Ui*Vi.transpose()).squaredNorm();
+			}
 		}
 	}
+}
 
-	return alpha;
+double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+                      Triangles& map) {
+    // Line search using Wolfe conditions
+    double alpha = 1.0;
+    double c1 = 1e-4; // 1e-5
+    double c2 = 0.9; // 0.99
+    std::cout << "lineSearch: " << std::endl;
+    double alphaMax = std::min(1.0, 0.8 * determineAlphaMax(xk, dk, map));
+
+    Eigen::VectorXd pk = xk + alpha * dk;
+    std::cout << "alphaMax: " << alphaMax << std::endl;
+
+    double ener, new_ener;
+    add_energies_jacobians(ener, true);
+	auto computeGradient = [&](const Eigen::VectorXd& x) {
+        Eigen::VectorXd grad_x = Eigen::VectorXd::Zero(num_vertices);
+        for (auto f : map.iter_facets()) {
+			int ind = 0;
+            for (int j = 0; j < 3; ++j) {
+                grad_x(int(f.vertex(j))) += Dx(ind, int(f.vertex(j)));
+                grad_x(int(f.vertex(j)) + num_vertices) += Dy(ind, int(f.vertex(j)));
+            }
+			ind++;
+        }
+        return grad_x;
+    };
+    Eigen::VectorXd grad_xk = computeGradient(xk);
+    
+	for (auto v : map.iter_vertices()) {
+        v.pos()[0] = pk(int(v));
+        v.pos()[2] = pk(int(v) + num_vertices);
+    }
+	add_energies_jacobians(new_ener, true);
+    for (auto f : map.iter_facets()) {
+		int ind = 0;
+        double u1 = f.vertex(0).pos()[0], v1 = f.vertex(0).pos()[2];
+        double u2 = f.vertex(1).pos()[0], v2 = f.vertex(1).pos()[2];
+        double u3 = f.vertex(2).pos()[0], v3 = f.vertex(2).pos()[2];
+        auto gradients = compute_gradients(u1, v1, u2, v2, u3, v3);
+        Eigen::Vector3d dudN = gradients.first;
+        Eigen::Vector3d dvdN = gradients.second;
+        for (int j = 0; j < 3; ++j) {
+            Dx(ind, int(f.vertex(j))) = dudN(j);
+            Dy(ind, int(f.vertex(j))) = dvdN(j);
+        }
+		ind++;
+    }
+    Eigen::VectorXd grad_pk = computeGradient(pk);
+
+    // Wolfe conditions
+    auto wolfe1 = [&]() {
+        return new_ener <= ener + c1 * alpha * grad_xk.dot(dk);
+    };
+
+    auto wolfe2 = [&]() {
+        return grad_pk.dot(dk) >= c2 * grad_xk.dot(dk);
+    };
+
+    // Initial check
+    if (wolfe1() && wolfe2()) {
+        return alpha;
+    }
+
+    // Bisection line search
+    double alphaLow = 0.0;
+    double alphaHigh = alphaMax;
+
+    while (alphaHigh - alphaLow > 1e-8) {
+        alpha = (alphaLow + alphaHigh) / 2.0;
+        pk = xk + alpha * dk;
+
+        if (!wolfe1()) {
+            alphaHigh = alpha;
+        } else if (!wolfe2()) {
+            alphaLow = alpha;
+        } else {
+            break;
+        }
+    }
+
+    return alpha;
 }
 
 void TrianglesMapping::nextStep(Triangles& map) {
-	// Define the objective function
-	auto objFunc = [](const Eigen::VectorXd& x) -> double {
-		return x.squaredNorm();  // Example: simple quadratic function
-	};
-
-	// Define the gradient function
-	auto gradFunc = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
-		return 2 * x;  // Example: gradient of simple quadratic function
-	};
-
 	// Perform line search to find step size alpha
-	double alpha = lineSearch(xk_1, dk, objFunc, gradFunc, map);
+	double alpha = lineSearch(xk_1, dk, map);
 
 	// Update the solution xk
 	xk = xk_1 + alpha * dk;

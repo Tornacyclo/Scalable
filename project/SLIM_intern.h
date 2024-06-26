@@ -43,18 +43,6 @@
 using namespace UM;
 
 
-// Template for the objective function
-template<typename FuncType>
-double objectiveFunctionTemplate(const Eigen::VectorXd& x, FuncType objFunc) {
-    return objFunc(x);
-}
-
-// Template for the gradient function
-template<typename GradType>
-Eigen::VectorXd gradientFunctionTemplate(const Eigen::VectorXd& x, GradType gradFunc) {
-    return gradFunc(x);
-}
-
 
 class TrianglesMapping {
 public:
@@ -97,10 +85,9 @@ private:
     int flipsCount(Triangles& map);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
+    void add_energies_jacobians(double& norm_arap_e, bool flips_linesearch);
     double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
-                      std::function<double(const Eigen::VectorXd&)> objFunc,
-                      std::function<Eigen::VectorXd(const Eigen::VectorXd&)> gradFunc,
-					  Triangles& map);
+                      Triangles& map);
     void nextStep(Triangles& map);
 };
 
