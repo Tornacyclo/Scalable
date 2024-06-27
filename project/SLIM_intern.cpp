@@ -95,7 +95,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             }
         }
 
-        std::cout << "J_i: " << std::endl << J_i << std::endl;
+        // std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
         Eigen::JacobiSVD<Eigen::Matrix2d> svd(J_i, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -326,7 +326,8 @@ void TrianglesMapping::least_squares() {
 	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver; // ConjugateGradient solver for symmetric positive definite matrices
     // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver; // BiCGSTAB solver for square matrices
     // Eigen::LeastSquaresConjugateGradient<Eigen::SparseMatrix<double>> solver; // LeastSquaresConjugateGradient solver for rectangular matrices
-	solver.compute(A.transpose() * A);
+	double lambda = 0.0001;
+    solver.compute(A.transpose() * A + lambda * Eigen::MatrixXd::Identity(2 * num_vertices, 2 * num_vertices));
 
 	if(solver.info() != Eigen::Success) {
 		// Decomposition failed
@@ -336,7 +337,7 @@ void TrianglesMapping::least_squares() {
 
 	// Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
     // Eigen::VectorXd xk = solver.solve(b);
-	Eigen::VectorXd xk = solver.solve(A.transpose() * b);
+	Eigen::VectorXd xk = solver.solve(A.transpose() * b + lambda * xk_1);
 
 	if(solver.info() != Eigen::Success) {
 		// Solving failed
@@ -356,7 +357,7 @@ void TrianglesMapping::least_squares() {
 	// xk = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
 	// xk = A.colPivHouseholderQr().solve(b);
 	dk = xk - xk_1;
-	std::cout << "Solution x:" << std::endl << xk << std::endl << xk.rows() << std::endl << xk.cols() << std::endl;
+	std::cout << "Solution x:" << std::endl << dk << std::endl;
 }
 
 void TrianglesMapping::verify_flips(Triangles& map,
@@ -377,9 +378,19 @@ void TrianglesMapping::verify_flips(Triangles& map,
 	}
 
 int TrianglesMapping::flipsCount(Triangles& map) {
-std::vector<int> ind_flip;
-verify_flips(map, ind_flip);
-return ind_flip.size();
+    std::vector<int> ind_flip;
+    verify_flips(map, ind_flip);
+    return ind_flip.size();
+}
+
+void TrianglesMapping::updateUV(Triangles& map, Eigen::VectorXd& xk) {
+    for (auto f : map.iter_facets()) {
+        for (int j = 0; j < 3; ++j) {
+            int v_idx = int(f.vertex(j));
+            xk(v_idx) = f.vertex(j).pos()[0];
+            xk(v_idx + num_vertices) = f.vertex(j).pos()[2];
+        }
+    }
 }
 
 // This function determines the maximum step size (alphaMax) that does not cause flips in the mesh.
@@ -392,10 +403,13 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 
 	while (alphaMax > 0) {
 		Eigen::VectorXd xk_new = xk + alphaMax * dk;
-		for (auto v : map.iter_vertices()) {
+        
+
+		/*for (auto v : map.iter_vertices()) {
 			v.pos()[0] = xk_new(int(v));
 			v.pos()[2] = xk_new(int(v) + num_vertices);
-		}
+		}*/
+        updateUV(map, xk_new);
 
 		verify_flips(map, ind_flip);
 		if (ind_flip.empty()) {
@@ -440,15 +454,16 @@ void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_li
 	}
 }
 
-void TrianglesMapping::computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
+void TrianglesMapping::computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
     double h = 1e-5; // small step for finite differences
     double original_energy;
     
     // Compute the original energy at x
-    for (auto v : map.iter_vertices()) {
+    /*for (auto v : map.iter_vertices()) {
         v.pos()[0] = x(int(v));
         v.pos()[2] = x(int(v) + num_vertices);
-    }
+    }*/
+    updateUV(map, x);
     jacobian_rotation_area(map, true);
     add_energies_jacobians(original_energy, true);
 
@@ -458,10 +473,11 @@ void TrianglesMapping::computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd
         x_plus_h[i] += h;
 
         double new_energy;
-        for (auto v : map.iter_vertices()) {
+        /*for (auto v : map.iter_vertices()) {
             v.pos()[0] = x_plus_h(int(v));
             v.pos()[2] = x_plus_h(int(v) + num_vertices);
-        }
+        }*/
+        updateUV(map, x_plus_h);
         jacobian_rotation_area(map, true);
         add_energies_jacobians(new_energy, true);
 
@@ -469,16 +485,17 @@ void TrianglesMapping::computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd
     }
 }
 
-void TrianglesMapping::computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
+void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
     // Ensure grad is the correct size
     grad.resize(x.size());
     grad.setZero();
     
     // Reset vertex positions according to x
-    for (auto v : map.iter_vertices()) {
+    /*for (auto v : map.iter_vertices()) {
         v.pos()[0] = x(int(v));
         v.pos()[2] = x(int(v) + num_vertices);
-    }
+    }*/
+    updateUV(map, x);
     
     // Compute the energy and its gradient (Jacobian)
     jacobian_rotation_area(map, true); // This function should set the internal state needed for gradients
@@ -498,18 +515,21 @@ void TrianglesMapping::computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen
     }
 }
 
-double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+double TrianglesMapping::lineSearch(Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       Triangles& map) {
     // Line search using Wolfe conditions
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
     double alphaMax = determineAlphaMax(xk, dk, map);
-    double alphaStep = std::min(1.0, 0.8 * determineAlphaMax(xk, dk, map));
+    // double alphaStep = std::min(1.0, 0.8 * alphaMax);
+    double alphaStep = 0.5;
 
     Eigen::VectorXd pk = xk + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
 
+    updateUV(map, xk_1);
+    jacobian_rotation_area(map, true);
     double ener, new_ener;
     add_energies_jacobians(ener, true);
     
@@ -518,11 +538,12 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
     // computeGradient(xk, grad_xk, map);
 	computeAnalyticalGradient(xk, grad_xk, map);
     
-    for (auto v : map.iter_vertices()) {
+    /*for (auto v : map.iter_vertices()) {
         v.pos()[0] = pk(int(v));
         v.pos()[2] = pk(int(v) + num_vertices);
     }
-    jacobian_rotation_area(map, true);
+    updateUV(map, pk);
+    jacobian_rotation_area(map, true);*/
     add_energies_jacobians(new_ener, true);
     
     // Compute gradient of pk
@@ -551,14 +572,18 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
     int iter = 0; // Current iteration
 
     while (alphaHigh - alphaLow > 1e-8 && iter < max_iter) {
-        alphaHigh = alphaStep;
-        alphaStep = (alphaLow + alphaHigh) / 2.0;
-        
-
         if (!wolfe1()) {
-            alphaHigh = alpha;
+            alphaHigh = alphaStep;
+            alphaStep = (alphaLow + alphaHigh) / 2.0;
+            
         } else if (!wolfe2()) {
-            alphaLow = alpha;
+            if (grad_pk.dot(dk) > 0) {
+                alphaHigh = alphaStep;
+            }
+            else {
+                alphaLow = alphaStep;
+            }
+            alphaStep = (alphaLow + alphaHigh) / 2.0;
         } else {
             break;
         }
@@ -566,11 +591,12 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
         pk = xk + alphaStep * dk;
 
         // Update pk positions
-        for (auto v : map.iter_vertices()) {
+        /*for (auto v : map.iter_vertices()) {
             v.pos()[0] = pk(int(v));
             v.pos()[2] = pk(int(v) + num_vertices);
         }
-        jacobian_rotation_area(map, true);
+        updateUV(map, pk);
+        jacobian_rotation_area(map, true);*/
         add_energies_jacobians(new_ener, true);
 
         // Compute gradient of pk
@@ -595,10 +621,11 @@ void TrianglesMapping::nextStep(Triangles& map) {
 	std::cout << "Step size alpha: " << alpha << std::endl;
 
 
-	for (auto v : mLocGlo.iter_vertices()) {
+	/*for (auto v : mLocGlo.iter_vertices()) {
 		v.pos()[0] = xk(int(v));
 		v.pos()[2] = xk(int(v) + num_vertices);
-	}
+	}*/
+    updateUV(map, xk);
 }
 
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
@@ -619,7 +646,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         name = "mesh_test/hemisphere.obj";
         #endif
         #ifdef linux
-        name = "project/mesh_test/cowhead.obj";
+        name = "project/mesh_test/hemisphere.obj";
         #endif
     }
 
@@ -1126,10 +1153,103 @@ int main() {
 }
 
 
-//////////////////////////////////////////////////STACK//////////////////////////////////////////////////
+//////////////////////////////////////////////////ENERGY//////////////////////////////////////////////////
 
 
 
+void TrianglesMapping::computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
+    // Ensure grad is the correct size
+    grad.resize(x.size());
+    grad.setZero();
+
+    // Reset vertex positions according to x
+    for (auto v : map.iter_vertices()) {
+        v.pos()[0] = x(int(v));
+        v.pos()[2] = x(int(v) + num_vertices);
+    }
+
+    // Compute areas and internal state needed for gradients
+    jacobian_rotation_area(map, true); // Assuming this computes areas and caches necessary values
+
+    // Calculate per-face area for original and current configurations
+    Eigen::VectorXd dblArea_orig, dblArea_p;
+    compute_double_area(map, dblArea_orig); // Custom function to compute double area for the original configuration
+    compute_double_area(map, dblArea_p);    // Custom function to compute double area for the current configuration
+
+    // Placeholder for energy per face computation
+    Eigen::VectorXd m_cached_l_energy_per_face(map.num_faces());
+    Eigen::VectorXd m_cached_r_energy_per_face(map.num_faces());
+
+    // Placeholder for cotangent entries
+    Eigen::MatrixXd m_cot_entries(map.num_faces(), 3);
+
+    // Compute energy per face and cotangent entries
+    for (int i = 0; i < map.num_faces(); ++i) {
+        auto& face = map.get_face(i);
+
+        // Compute edge vectors
+        Eigen::Vector2d v0 = map.vertex(face.vertex_index(0)).pos();
+        Eigen::Vector2d v1 = map.vertex(face.vertex_index(1)).pos();
+        Eigen::Vector2d v2 = map.vertex(face.vertex_index(2)).pos();
+
+        Eigen::Vector2d e0 = v1 - v0;
+        Eigen::Vector2d e1 = v2 - v1;
+        Eigen::Vector2d e2 = v0 - v2;
+
+        // Compute cotangent entries
+        m_cot_entries(i, 0) = compute_cotangent(e0, e2);
+        m_cot_entries(i, 1) = compute_cotangent(e1, -e0);
+        m_cot_entries(i, 2) = compute_cotangent(e2, -e1);
+
+        // Compute energy per face (placeholder example)
+        m_cached_l_energy_per_face(i) = e0.squaredNorm(); // Replace with actual energy computation
+        m_cached_r_energy_per_face(i) = e1.squaredNorm(); // Replace with actual energy computation
+    }
+
+    // Adjust gradients based on area terms
+    for (int i = 0; i < map.num_faces(); ++i) {
+        double t_orig_area = dblArea_orig(i) / 2.0;
+        double t_uv_area = dblArea_p(i) / 2.0;
+        double left_grad_const = -pow(t_orig_area, 2) / pow(t_uv_area, 3);
+
+        auto& face = map.get_face(i);
+        for (int j = 0; j < 3; ++j) {
+            int v1 = face.vertex_index(j);
+            int v2 = face.vertex_index((j + 1) % 3);
+            int v3 = face.vertex_index((j + 2) % 3);
+
+            // Compute left gradient
+            Eigen::Vector2d rotated_left_grad = left_grad_const * (map.vertex(v2).pos() - map.vertex(v3).pos());
+            Eigen::Vector2d c_left_grad(rotated_left_grad.y(), -rotated_left_grad.x());
+
+            // Compute right gradient
+            Eigen::Vector2d c_right_grad = -m_cot_entries(i, v2) * map.vertex(v3).pos()
+                                           - m_cot_entries(i, v3) * map.vertex(v2).pos()
+                                           + (m_cot_entries(i, v2) + m_cot_entries(i, v3)) * map.vertex(v1).pos();
+
+            // Product rule and accumulation
+            grad(v1) -= (c_left_grad * m_cached_r_energy_per_face[i] + c_right_grad * m_cached_l_energy_per_face[i]);
+        }
+    }
+}
+
+double TrianglesMapping::compute_cotangent(const Eigen::Vector2d& e1, const Eigen::Vector2d& e2) {
+    double dot_product = e1.dot(e2);
+    double cross_product = e1.x() * e2.y() - e1.y() * e2.x();
+    return dot_product / cross_product;
+}
+
+void TrianglesMapping::compute_double_area(Triangles& map, Eigen::VectorXd& dblArea) {
+    // Custom function to compute the double area of each triangle in the mesh
+    dblArea.resize(map.num_faces());
+    for (int i = 0; i < map.num_faces(); ++i) {
+        auto& face = map.get_face(i);
+        Eigen::Vector2d v0 = map.vertex(face.vertex_index(0)).pos();
+        Eigen::Vector2d v1 = map.vertex(face.vertex_index(1)).pos();
+        Eigen::Vector2d v2 = map.vertex(face.vertex_index(2)).pos();
+        dblArea(i) = std::abs((v1 - v0).x() * (v2 - v0).y() - (v2 - v0).x() * (v1 - v0).y());
+    }
+}
 
 
 

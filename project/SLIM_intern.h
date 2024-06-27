@@ -84,12 +84,13 @@ private:
     void verify_flips(Triangles& map,
 				std::vector<int>& ind_flip);
     int flipsCount(Triangles& map);
+    void updateUV(Triangles& map, Eigen::VectorXd& xk);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
     void add_energies_jacobians(double& norm_arap_e, bool flips_linesearch);
-    void computeGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
-    void computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
-    double lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+    void computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
+    void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
+    double lineSearch(Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       Triangles& map);
     void nextStep(Triangles& map);
 };
