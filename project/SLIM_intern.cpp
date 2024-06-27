@@ -52,8 +52,8 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
 	Jac.clear();
 	Rot.clear();
+    int ind = 0;
 	for (auto f : map.iter_facets()) {
-		int ind = 0;
 		Eigen::Matrix2d J_i;
 		J_i(0, 0) = f.vertex(1).pos()[0] - f.vertex(0).pos()[0];
 		J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
@@ -93,6 +93,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
 		ind++;
 	}
+    std::cout << "Hello ?" << Af(5000, 5000) << std::endl;
 }
 
 void TrianglesMapping::update_weights() {
@@ -298,9 +299,9 @@ void TrianglesMapping::least_squares() {
 		return;
 	}
 
-	Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
+	// Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
     // Eigen::VectorXd xk = solver.solve(b);
-	// Eigen::VectorXd xk = solver.solve(A.transpose() * b);
+	Eigen::VectorXd xk = solver.solve(A.transpose() * b);
 
 	if(solver.info() != Eigen::Success) {
 		// Solving failed
@@ -958,103 +959,7 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
 
 
-	/*using namespace Eigen;
-
-    // Define the dimensions of the problem
-    const int n = 4;  // Number of elements, adjust as needed
-
-    // Define the matrices Dx and Dy (FE gradient matrices) - These should be defined based on your specific mesh
-    MatrixXd Dx(n, n);
-    MatrixXd Dy(n, n);
-
-    // Example initialization (replace with actual Dx and Dy)
-    Dx.setIdentity();
-    Dy.setIdentity();
-
-    // Define the diagonal matrices Wij
-    VectorXd W11(n);
-    VectorXd W12(n);
-    VectorXd W21(n);
-    VectorXd W22(n);
-
-    // Example initialization (replace with actual values)
-    W11.setOnes();
-    W12.setOnes();
-    W21.setOnes();
-    W22.setOnes();
-
-    // Create the diagonal matrices
-    MatrixXd W11_diag = W11.asDiagonal();
-    MatrixXd W12_diag = W12.asDiagonal();
-    MatrixXd W21_diag = W21.asDiagonal();
-    MatrixXd W22_diag = W22.asDiagonal();
-
-    // Define matrix A
-    MatrixXd A(4 * n, 2 * n);
-    A << W11_diag * Dx, W12_diag * Dx,
-         W21_diag * Dy, W22_diag * Dy,
-         W11_diag * Dx, W12_diag * Dy,
-         W21_diag * Dy, W22_diag * Dy;
-
-    // Define vector b
-    VectorXd R11(n);
-    VectorXd R12(n);
-    VectorXd R21(n);
-    VectorXd R22(n);
-
-    // Example initialization (replace with actual values)
-    R11 << 1, 2, 3, 4;
-    R12 << 1, 2, 3, 4;
-    R21 << 1, 2, 3, 4;
-    R22 << 1, 2, 3, 4;
-
-    VectorXd b(4 * n);
-    b << R11, R21, R12, R22;
-
-    // Solve the least squares problem
-    VectorXd x = A.bdcSvd(ComputeThinU | ComputeThinV).solve(b);
-
-    // Output the result
-    std::cout << "The solution is:\n" << x << std::endl;
-
-
-
-	
-	using namespace Eigen;
-using namespace std;
-
-// Function to retrieve the (x, y) coordinates from the solution vector
-vector<pair<double, double>> getCoordinates(const VectorXd& x) {
-    int n = x.size() / 2;
-    vector<pair<double, double>> coordinates(n);
-
-    for (int i = 0; i < n; ++i) {
-        double xCoord = x(i);
-        double yCoord = x(i + n);
-        coordinates[i] = make_pair(xCoord, yCoord);
-    }
-
-    return coordinates;
-}
-
-int main() {
-    // Example dimension (number of vertices)
-    const int n = 4;
-
-    // Example solution vector x of dimension 2n
-    VectorXd x(2 * n);
-    x << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0;  // Replace with your actual solution vector
-
-    // Retrieve the (x, y) coordinates
-    vector<pair<double, double>> coordinates = getCoordinates(x);
-
-    // Output the coordinates
-    cout << "Coordinates of the vertices:" << endl;
-    for (int i = 0; i < n; ++i) {
-        cout << "Vertex " << i + 1 << ": (" << coordinates[i].first << ", " << coordinates[i].second << ")" << endl;
-    }
-
-    return 0;
+	/*
 
 
 	----------------------------------------3D to 2D----------------------------------------
@@ -1157,6 +1062,14 @@ int main() {
 
     return 0;
 }
+
+
+//////////////////////////////////////////////////STACK//////////////////////////////////////////////////
+
+
+
+
+
 
 }*////////////////////// SLIM_intern.cpp //////////////////////
 
