@@ -287,7 +287,9 @@ void TrianglesMapping::least_squares() {
 	}
 
 	// Use an iterative solver
-	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver;
+	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver; // ConjugateGradient solver for symmetric positive definite matrices
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver; // BiCGSTAB solver for square matrices
+    // Eigen::LeastSquaresConjugateGradient<Eigen::SparseMatrix<double>> solver; // LeastSquaresConjugateGradient solver for rectangular matrices
 	solver.compute(A.transpose() * A);
 
 	if(solver.info() != Eigen::Success) {
