@@ -892,7 +892,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     for (auto f : mOri.iter_facets()) {
         double area = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
         fa2[f] = area;
-        fOriMap[f] = area;
+        fOriMap[int(f)] = area;
     }
 
     CornerAttribute<double> he(mTut);
@@ -966,7 +966,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
     FacetAttribute<double> fa(mLocGlo);
     for (auto f : mLocGlo.iter_facets()) {
-        fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[f];
+        fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
     }
 
     write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });

@@ -61,7 +61,7 @@ private:
     Triangles mTut;
     Triangles mLocGlo;
     std::set<int> blade;
-    std::unordered_map<Surface::Facet, double> fOriMap;
+    std::unordered_map<int, double> fOriMap;
     Eigen::MatrixXd EigenMap;
     char output_name[120];
     char energy[65] = "arap";
