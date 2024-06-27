@@ -93,7 +93,6 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
 		ind++;
 	}
-    std::cout << "Hello ?" << Af(5000, 5000) << std::endl;
 }
 
 void TrianglesMapping::update_weights() {
@@ -243,6 +242,8 @@ void TrianglesMapping::least_squares() {
 	Eigen::VectorXd R12 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R21 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R22 = Eigen::VectorXd::Zero(num_triangles);
+
+    std::cout << "hello: " << Dx << std::endl;
 
 	for (int i = 0; i < num_triangles; ++i) {
 		W11_diag(i) = Wei[i](0, 0);
