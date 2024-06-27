@@ -71,7 +71,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         e2(1) = f.vertex(0).pos()[1] - f.vertex(2).pos()[1];
 
         // Compute the per-triangle gradient matrix components
-        double twiceArea = std::abs(e0.x() * e1.y() - e0.y() * e1.x());
+        double twiceArea = std::fabs(static_cast<long double>(e0.x()) * static_cast<long double>(e1.y()) - static_cast<long double>(e0.y()) * static_cast<long double>(e1.x()));
         Eigen::Matrix2d grad;
         grad << e1.y(), -e2.y(), -e1.x(), e2.x();
         grad /= twiceArea;
