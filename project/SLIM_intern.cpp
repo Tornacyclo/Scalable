@@ -82,17 +82,19 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             Dx_triplets.push_back(Eigen::Triplet<double>(ind, v_idx, grad(0, j)));
             Dy_triplets.push_back(Eigen::Triplet<double>(ind, v_idx, grad(1, j)));
 
+            // Ji=[D1*u, D2*u, D1*v, D2*v];
+            J_i(0, 0) += grad(0, 0) * f.vertex(j).pos()[0];
+            J_i(1, 0) += grad(0, 1) * f.vertex(j).pos()[2];
+
+            J_i(0, 1) += grad(1, 0) * f.vertex(j).pos()[0];
+            J_i(1, 1) += grad(1, 1) * f.vertex(j).pos()[2];
+
             if (!lineSearch) {
                 xk_1(v_idx) = f.vertex(j).pos()[0];
                 xk_1(v_idx + num_vertices) = f.vertex(j).pos()[2];
             }
         }
 
-        // Fill J_i with the values of gradients Dx and Dy
-        J_i(0, 0) = grad(0, 0); // dphi1/dx
-        J_i(0, 1) = grad(0, 1); // dphi2/dx
-        J_i(1, 0) = grad(1, 0); // dphi1/dy
-        J_i(1, 1) = grad(1, 1); // dphi2/dy
         std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
@@ -499,14 +501,14 @@ void TrianglesMapping::computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen
 double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                       Triangles& map) {
     // Line search using Wolfe conditions
-    double alpha = 1.0;
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
-    double alphaMax = std::min(1.0, 0.8 * determineAlphaMax(xk, dk, map));
+    double alphaMax = determineAlphaMax(xk, dk, map);
+    double alphaStep = std::min(1.0, 0.8 * determineAlphaMax(xk, dk, map));
 
-    Eigen::VectorXd pk = xk + alpha * dk;
-    std::cout << "alphaMax: " << alphaMax << std::endl;
+    Eigen::VectorXd pk = xk + alphaStep * dk;
+    std::cout << "alphaStep: " << alphaStep << std::endl;
 
     double ener, new_ener;
     add_energies_jacobians(ener, true);
@@ -530,17 +532,17 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
 
     // Wolfe conditions
     auto wolfe1 = [&]() {
-        return new_ener <= ener + c1 * alpha * grad_xk.dot(dk);
+        return new_ener <= ener + c1 * alphaStep * grad_xk.dot(dk);
     };
 
     auto wolfe2 = [&]() {
         return grad_pk.dot(dk) >= c2 * grad_xk.dot(dk);
     };
 
-    // Initial check
-    if (wolfe1() && wolfe2()) {
-        return alpha;
-    }
+    // // Initial check
+    // if (wolfe1() && wolfe2()) {
+    //     return alpha;
+    // }
 
     // Bisection line search with max_iter limit
     double alphaLow = 0.0;
@@ -549,8 +551,19 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
     int iter = 0; // Current iteration
 
     while (alphaHigh - alphaLow > 1e-8 && iter < max_iter) {
-        alpha = (alphaLow + alphaHigh) / 2.0;
-        pk = xk + alpha * dk;
+        alphaHigh = alphaStep;
+        alphaStep = (alphaLow + alphaHigh) / 2.0;
+        
+
+        if (!wolfe1()) {
+            alphaHigh = alpha;
+        } else if (!wolfe2()) {
+            alphaLow = alpha;
+        } else {
+            break;
+        }
+
+        pk = xk + alphaStep * dk;
 
         // Update pk positions
         for (auto v : map.iter_vertices()) {
@@ -564,17 +577,10 @@ double TrianglesMapping::lineSearch(const Eigen::VectorXd& xk, const Eigen::Vect
         // computeGradient(pk, grad_pk, map);
 		computeAnalyticalGradient(pk, grad_pk, map);
 
-        if (!wolfe1()) {
-            alphaHigh = alpha;
-        } else if (!wolfe2()) {
-            alphaLow = alpha;
-        } else {
-            break;
-        }
         iter++; // Increment iteration counter
     }
 
-    return alpha;
+    return alphaStep;
 }
 
 void TrianglesMapping::nextStep(Triangles& map) {
@@ -922,6 +928,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 
 void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 	read_by_extension(map, mLocGlo);
+    mLocGlo.connect();
 	for (int i = 0; i < max_iterations; ++i) {
     jacobian_rotation_area(mLocGlo, false);
 	std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
