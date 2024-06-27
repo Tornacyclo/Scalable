@@ -613,7 +613,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         name = "mesh_test/hemisphere.obj";
         #endif
         #ifdef linux
-        name = "project/mesh_test/hemisphere.obj";
+        name = "project/mesh_test/cowhead.obj";
         #endif
     }
 
@@ -953,7 +953,26 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 	strcat(output_name, numStr);
 	strcat(output_name, ext2);
 
-	write_by_extension(output_name, mLocGlo);
+    FacetAttribute<double> fa2(mOri);
+    for (auto f : mOri.iter_facets()) {
+        fa2[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+    }
+
+    CornerAttribute<double> he(mLocGlo);
+    for (auto f : mLocGlo.iter_halfedges()) {
+        if (blade.contains(f.from()) || blade.contains(f.to())) {
+            he[f] = 404;
+        } else {
+            he[f] = 0;
+        }
+    }
+
+    FacetAttribute<double> fa(mLocGlo);
+    for (auto f : mLocGlo.iter_facets()) {
+        fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
+    }
+
+    write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
 	std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
 	#ifdef _WIN32
 	// Open the generated mesh with Graphite
