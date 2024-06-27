@@ -646,12 +646,15 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         }
     }
 
-    Eigen::SparseMatrix<double> A_II(nverts - fixed, nverts - fixed);
-    Eigen::SparseMatrix<double> A_IB(nverts - fixed, fixed);
+    /*Eigen::SparseMatrix<double> A_II(nverts - fixed, nverts - fixed);
+    Eigen::SparseMatrix<double> A_IB(nverts - fixed, fixed);*/
+    Eigen::MatrixXd A_II(nverts - fixed, nverts - fixed);
+    Eigen::MatrixXd A_IB(nverts - fixed, fixed);
     Eigen::VectorXd b_I = Eigen::VectorXd::Zero(nverts - fixed);
     Eigen::MatrixXd x_B = Eigen::MatrixXd::Zero(fixed, 2);
 
-    Eigen::SparseMatrix<double> A_II_A_BB(nverts, nverts);
+    // Eigen::SparseMatrix<double> A_II_A_BB(nverts, nverts);
+    Eigen::MatrixXd A_II_A_BB(nverts, nverts);
     for (int i = 0; i < fixed; ++i) {
         A_II_A_BB.insert(i, i) = 1;
     }
@@ -800,7 +803,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         return;
     }*/
 
-   Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
+   /*Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
     solver.compute(A_II_A_BB);
     if (solver.info() != Eigen::Success) {
         // Decomposition failed
@@ -817,8 +820,9 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         // Solving failed
         std::cerr << "Solving failed" << std::endl;
         return;
-    }
+    }*/
 
+    Eigen::VectorXd x_I_full = A_II_A_BB.ColPivHouseholderQR().solve(lhsF);
     std::cout << x_I_full << std::endl;
     EigenMap = x_I_full;
 
