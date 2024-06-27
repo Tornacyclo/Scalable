@@ -69,7 +69,7 @@ private:
 	int num_triangles;
     std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
     Eigen::MatrixXd Af; // Area factor
-    Eigen::MatrixXd Dx, Dy;
+    Eigen::SparseMatrix<double> Dx, Dy;
     Eigen::VectorXi dx_i, dx_j;////////////////////////
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
