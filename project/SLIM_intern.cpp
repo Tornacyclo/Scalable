@@ -64,14 +64,14 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         Eigen::Vector2d e1;
         Eigen::Vector2d e2;
         e0(0) = f.vertex(1).pos()[0] - f.vertex(0).pos()[0];
-        e0(1) = f.vertex(1).pos()[1] - f.vertex(0).pos()[1];
+        e0(1) = f.vertex(1).pos()[2] - f.vertex(0).pos()[2];
         e1(0) = f.vertex(2).pos()[0] - f.vertex(1).pos()[0];
-        e1(1) = f.vertex(2).pos()[1] - f.vertex(1).pos()[1];
+        e1(1) = f.vertex(2).pos()[2] - f.vertex(1).pos()[2];
         e2(0) = f.vertex(0).pos()[0] - f.vertex(2).pos()[0];
-        e2(1) = f.vertex(0).pos()[1] - f.vertex(2).pos()[1];
+        e2(1) = f.vertex(0).pos()[2] - f.vertex(2).pos()[2];
 
         // Compute the per-triangle gradient matrix components
-        double twiceArea = std::fabs(static_cast<long double>(e0.x()) * static_cast<long double>(e1.y()) - static_cast<long double>(e0.y()) * static_cast<long double>(e1.x()));
+        double twiceArea = std::abs(e0.x() * e1.y() - e0.y() * e1.x());
         Eigen::Matrix2d grad;
         grad << e1.y(), -e2.y(), -e1.x(), e2.x();
         grad /= twiceArea;
@@ -84,7 +84,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
             if (!lineSearch) {
                 xk_1(v_idx) = f.vertex(j).pos()[0];
-                xk_1(v_idx + num_vertices) = f.vertex(j).pos()[1]; // Corrected from 2 to 1
+                xk_1(v_idx + num_vertices) = f.vertex(j).pos()[2];
             }
         }
 
