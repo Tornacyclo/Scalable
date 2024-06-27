@@ -665,7 +665,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     mTut.connect();
 
     int fixed = 0;
-    std::set<int> blade;
+    // std::set<int> blade;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     for (int i = 0; i < mTut.nverts(); i++) {
         Surface::Vertex vi = Surface::Vertex(mOri, i);
@@ -890,7 +890,9 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 
     FacetAttribute<double> fa2(mOri);
     for (auto f : mOri.iter_facets()) {
-        fa2[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        double area = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        fa2[f] = area;
+        fOriMap[f] = area;
     }
 
     CornerAttribute<double> he(mTut);
@@ -953,11 +955,6 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 	strcat(output_name, numStr);
 	strcat(output_name, ext2);
 
-    FacetAttribute<double> fa2(mOri);
-    for (auto f : mOri.iter_facets()) {
-        fa2[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
-    }
-
     CornerAttribute<double> he(mLocGlo);
     for (auto f : mLocGlo.iter_halfedges()) {
         if (blade.contains(f.from()) || blade.contains(f.to())) {
@@ -969,7 +966,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
     FacetAttribute<double> fa(mLocGlo);
     for (auto f : mLocGlo.iter_facets()) {
-        fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
+        fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[f];
     }
 
     write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
