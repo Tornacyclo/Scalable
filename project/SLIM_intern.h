@@ -65,7 +65,7 @@ private:
     Eigen::MatrixXd EigenMap;
     char output_name[120];
     char energy[65] = "arap";
-    int max_iterations = 100;
+    int max_iterations = 200;
 
     int num_vertices;
 	int num_triangles;
@@ -84,7 +84,7 @@ private:
     void verify_flips(Triangles& map,
 				std::vector<int>& ind_flip);
     int flipsCount(Triangles& map);
-    void updateUV(Triangles& map, Eigen::VectorXd& xk);
+    void updateUV(Triangles& map, const Eigen::VectorXd& xk);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
     void add_energies_jacobians(double& norm_arap_e, bool flips_linesearch);

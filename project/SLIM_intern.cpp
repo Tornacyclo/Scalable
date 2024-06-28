@@ -48,7 +48,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
-    xk_1 = Eigen::VectorXd::Zero(2 * num_triangles);
+    if (!lineSearch) {xk_1 = Eigen::VectorXd::Zero(2 * num_triangles);}
 
     Jac.clear();
     Rot.clear();
@@ -383,12 +383,12 @@ int TrianglesMapping::flipsCount(Triangles& map) {
     return ind_flip.size();
 }
 
-void TrianglesMapping::updateUV(Triangles& map, Eigen::VectorXd& xk) {
+void TrianglesMapping::updateUV(Triangles& map, const Eigen::VectorXd& xk) {
     for (auto f : map.iter_facets()) {
         for (int j = 0; j < 3; ++j) {
             int v_idx = int(f.vertex(j));
-            xk(v_idx) = f.vertex(j).pos()[0];
-            xk(v_idx + num_vertices) = f.vertex(j).pos()[2];
+            f.vertex(j).pos()[0] = xk(v_idx);
+            f.vertex(j).pos()[2] = xk(v_idx + num_vertices);
         }
     }
 }
@@ -523,7 +523,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk, const Eigen::VectorXd& 
     std::cout << "lineSearch: " << std::endl;
     double alphaMax = determineAlphaMax(xk, dk, map);
     // double alphaStep = std::min(1.0, 0.8 * alphaMax);
-    double alphaStep = 0.5;
+    double alphaStep = 0.9 * alphaMax;
 
     Eigen::VectorXd pk = xk + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
@@ -1005,13 +1005,15 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
     write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
 	std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
-	#ifdef _WIN32
-	// Open the generated mesh with Graphite
-	int result = system((getGraphitePath() + " " + output_name).c_str());
-	#endif
-	#ifdef linux
-	system((std::string("graphite ") + output_name).c_str());
-	#endif
+	if (i % 20 == 0) {
+        #ifdef _WIN32
+        // Open the generated mesh with Graphite
+        int result = system((getGraphitePath() + " " + output_name).c_str());
+        #endif
+        #ifdef linux
+        system((std::string("graphite ") + output_name).c_str());
+        #endif
+    }
 	}
 }
 
