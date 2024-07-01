@@ -669,6 +669,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
     // double alphaMax = determineAlphaMax(xk_search, dk, map);
     // double alphaStep = std::min(1.0, 0.8 * alphaMax);
     double alphaStep = 0.9 * alphaMax;
+    double alphaTest = 0.9 * alphaMax;
 
     Eigen::VectorXd pk = xk_search + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
@@ -751,7 +752,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
         iter++; // Increment iteration counter
     }
 
-    return alphaStep;
+    return alphaTest;
 }
 
 void TrianglesMapping::nextStep(Triangles& map) {
