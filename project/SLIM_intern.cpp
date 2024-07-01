@@ -77,10 +77,10 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         grad /= twiceArea;
 
         for (int j = 0; j < 3; ++j) {
-            int v_idx = int(f.vertex(j));
+            int v_ind = int(f.vertex(j));
 
-            Dx_triplets.push_back(Eigen::Triplet<double>(ind, v_idx, grad(0, j)));
-            Dy_triplets.push_back(Eigen::Triplet<double>(ind, v_idx, grad(1, j)));
+            Dx_triplets.push_back(Eigen::Triplet<double>(ind, v_ind, grad(0, j)));
+            Dy_triplets.push_back(Eigen::Triplet<double>(ind, v_ind, grad(1, j)));
 
             // Ji=[D1*u, D2*u, D1*v, D2*v];
             J_i(0, 0) += grad(0, 0) * f.vertex(j).pos()[0];
@@ -90,8 +90,8 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             J_i(1, 1) += grad(1, 1) * f.vertex(j).pos()[2];
 
             if (!lineSearch) {
-                xk_1(v_idx) = f.vertex(j).pos()[0];
-                xk_1(v_idx + num_vertices) = f.vertex(j).pos()[2];
+                xk_1(v_ind) = f.vertex(j).pos()[0];
+                xk_1(v_ind + num_vertices) = f.vertex(j).pos()[2];
             }
         }
 
@@ -386,9 +386,9 @@ int TrianglesMapping::flipsCount(Triangles& map) {
 void TrianglesMapping::updateUV(Triangles& map, const Eigen::VectorXd& xk) {
     for (auto f : map.iter_facets()) {
         for (int j = 0; j < 3; ++j) {
-            int v_idx = int(f.vertex(j));
-            f.vertex(j).pos()[0] = xk(v_idx);
-            f.vertex(j).pos()[2] = xk(v_idx + num_vertices);
+            int v_ind = int(f.vertex(j));
+            f.vertex(j).pos()[0] = xk(v_ind);
+            f.vertex(j).pos()[2] = xk(v_ind + num_vertices);
         }
     }
 }
@@ -405,10 +405,10 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 		Eigen::VectorXd xk_new = xk + alphaMax * dk;
         
 
-		/*for (auto v : map.iter_vertices()) {
+		for (auto v : map.iter_vertices()) {
 			v.pos()[0] = xk_new(int(v));
 			v.pos()[2] = xk_new(int(v) + num_vertices);
-		}*/
+		}
         updateUV(map, xk_new);
 
 		verify_flips(map, ind_flip);
@@ -421,6 +421,106 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	return alphaMax;
 }
 
+ double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& x, Eigen::VectorXd& dst_x) {
+    double maximum_step = INFINITY;
+    updateUV(map, x);
+    for (auto f : map.iter_facets()) {
+        // Get quadratic coefficients (ax^2 + b^x + c)
+        #define U11 f.vertex(0).pos()[0]
+        #define U12 f.vertex(0).pos()[1]
+        #define U21 f.vertex(1).pos()[0]
+        #define U22 f.vertex(1).pos()[1]
+        #define U31 f.vertex(2).pos()[0]
+        #define U32 f.vertex(2).pos()[1]
+
+        #define V11 dst_x(int(f.vertex(0)))
+        #define V12 dst_x(int(f.vertex(0)) + num_vertices)
+        #define V21 dst_x(int(f.vertex(1)))
+        #define V22 dst_x(int(f.vertex(1)) + num_vertices)
+        #define V31 dst_x(int(f.vertex(2)))
+        #define V32 dst_x(int(f.vertex(2)) + num_vertices)
+        
+        
+        double a = V11*V22 - V12*V21 - V11*V32 + V12*V31 + V21*V32 - V22*V31;
+        double b = U11*V22 - U12*V21 - U21*V12 + U22*V11 - U11*V32 + U12*V31 + U31*V12 - U32*V11 + U21*V32 - U22*V31 - U31*V22 + U32*V21;
+        double c = U11*U22 - U12*U21 - U11*U32 + U12*U31 + U21*U32 - U22*U31;
+
+        double minimum_positive_root = smallest_position_quadratic_zero(a, b, c);
+        maximum_step = std::min(maximum_step, minimum_positive_root);
+    }
+
+    return maximum_step;
+ }
+
+ /*double TrianglesMapping::minimum_position_root(const Eigen::MatrixXd& uv,const Eigen::MatrixXi& F,
+            Eigen::MatrixXd& d, int f) {
+/*
+      Symbolic matlab for equation 4 at the paper (this is how to recreate the formulas below)
+      U11 = sym('U11');
+      U12 = sym('U12');
+      U21 = sym('U21');
+      U22 = sym('U22');
+      U31 = sym('U31');
+      U32 = sym('U32');
+
+      V11 = sym('V11');
+      V12 = sym('V12');
+      V21 = sym('V21');
+      V22 = sym('V22');
+      V31 = sym('V31');
+      V32 = sym('V32');
+
+      t = sym('t');
+
+      U1 = [U11,U12];
+      U2 = [U21,U22];
+      U3 = [U31,U32];
+
+      V1 = [V11,V12];
+      V2 = [V21,V22];
+      V3 = [V31,V32];
+
+      A = [(U2+V2*t) - (U1+ V1*t)];
+      B = [(U3+V3*t) - (U1+ V1*t)];
+      C = [A;B];
+
+      solve(det(C), t);
+      cf = coeffs(det(C),t); % Now cf(1),cf(2),cf(3) holds the coefficients for the polynom. at order c,b,a
+}*/
+
+double TrianglesMapping::smallest_position_quadratic_zero(double a, double b, double c) {
+    double x1, x2;
+    if (a != 0) {
+        double delta = pow(b, 2) - 4*a*c;
+        if (delta < 0) {
+            return INFINITY;
+        }
+        delta = sqrt(delta);
+        x1 = (-b + delta)/ (2*a);
+        x2 = (-b - delta)/ (2*a);
+    } else {
+        x1 = x2 = -b/c;
+    }
+    assert(std::isfinite(x1));
+    assert(std::isfinite(x2));
+
+    double temp = std::min(x1, x2);
+    x1 = std::max(x1, x2); x2 = temp;
+    if (x1 == x2) {
+        return INFINITY; // Means the orientation flips twice, so does it flip?
+    }
+    // Return the smallest negative root if it exists, otherwise return infinity
+    if (x1 > 0) {
+        if (x2 > 0) {
+            return x2;
+        } else {
+            return x1;
+        }
+    } else {
+        return INFINITY;
+    }
+}
+
 /*double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
                                             Triangles& map) {
     double alphaMax = 1.0;
@@ -431,10 +531,10 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 
     for (auto f : map.iter_facets()) {
         for (int j = 0; j < 3; ++j) {
-            int v_idx = int(f.vertex(j));
-            F(f.index(), j) = v_idx;
-            uv(v_idx, 0) = f.vertex(j).pos()[0];
-            uv(v_idx, 1) = f.vertex(j).pos()[2];
+            int v_ind = int(f.vertex(j));
+            F(f.index(), j) = v_ind;
+            uv(v_ind, 0) = f.vertex(j).pos()[0];
+            uv(v_ind, 1) = f.vertex(j).pos()[2];
         }
     }
 
@@ -457,8 +557,7 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
     }
 
     return alphaMax;
-}
-*/
+}*/
 
 void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_linesearch) {
 	// schaeffer_e = log_e = conf_e = amips = 0;
@@ -554,28 +653,29 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
     }
 }
 
-double TrianglesMapping::lineSearch(Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, const Eigen::VectorXd& dk,
                       Triangles& map) {
     // Line search using Wolfe conditions
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
-    double alphaMax = determineAlphaMax(xk, dk, map);
+    double alphaMax = minimum_step_singularities(map, xk, xk_1);
+    // double alphaMax = determineAlphaMax(xk_search, dk, map);
     // double alphaStep = std::min(1.0, 0.8 * alphaMax);
     double alphaStep = 0.9 * alphaMax;
 
-    Eigen::VectorXd pk = xk + alphaStep * dk;
+    Eigen::VectorXd pk = xk_search + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
 
-    updateUV(map, xk_1);
+    updateUV(map, xk_search);
     jacobian_rotation_area(map, true);
     double ener, new_ener;
     add_energies_jacobians(ener, true);
     
-    // Compute gradient of xk
-    Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk.size());
-    // computeGradient(xk, grad_xk, map);
-	computeAnalyticalGradient(xk, grad_xk, map);
+    // Compute gradient of xk_search
+    Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk_search.size());
+    // computeGradient(xk_search, grad_xk, map);
+	computeAnalyticalGradient(xk_search, grad_xk, map);
     
     /*for (auto v : map.iter_vertices()) {
         v.pos()[0] = pk(int(v));
@@ -627,7 +727,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk, const Eigen::VectorXd& 
             break;
         }
 
-        pk = xk + alphaStep * dk;
+        pk = xk_search + alphaStep * dk;
 
         // Update pk positions
         /*for (auto v : map.iter_vertices()) {
