@@ -335,9 +335,9 @@ void TrianglesMapping::least_squares() {
 		return;
 	}
 
-	// Eigen::VectorXd xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
-    // Eigen::VectorXd xk = solver.solve(b);
-	Eigen::VectorXd xk = solver.solve(A.transpose() * b + lambda * xk_1);
+	// xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
+    // xk = solver.solve(b);
+	xk = solver.solve(A.transpose() * b + lambda * xk_1);
 
 	if(solver.info() != Eigen::Success) {
 		// Solving failed
@@ -421,24 +421,30 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	return alphaMax;
 }
 
- double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& x, Eigen::VectorXd& dst_x) {
+ double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& x, Eigen::VectorXd& d) {
     double maximum_step = INFINITY;
-    updateUV(map, x);
+    // updateUV(map, x);
     for (auto f : map.iter_facets()) {
         // Get quadratic coefficients (ax^2 + b^x + c)
-        #define U11 f.vertex(0).pos()[0]
+        /*#define U11 f.vertex(0).pos()[0]
         #define U12 f.vertex(0).pos()[1]
         #define U21 f.vertex(1).pos()[0]
         #define U22 f.vertex(1).pos()[1]
         #define U31 f.vertex(2).pos()[0]
-        #define U32 f.vertex(2).pos()[1]
+        #define U32 f.vertex(2).pos()[1]*/
+        #define U11 x(int(f.vertex(0)))
+        #define U12 x(int(f.vertex(0)) + num_vertices)
+        #define U21 x(int(f.vertex(1)))
+        #define U22 x(int(f.vertex(1)) + num_vertices)
+        #define U31 x(int(f.vertex(2)))
+        #define U32 x(int(f.vertex(2)) + num_vertices)
 
-        #define V11 dst_x(int(f.vertex(0)))
-        #define V12 dst_x(int(f.vertex(0)) + num_vertices)
-        #define V21 dst_x(int(f.vertex(1)))
-        #define V22 dst_x(int(f.vertex(1)) + num_vertices)
-        #define V31 dst_x(int(f.vertex(2)))
-        #define V32 dst_x(int(f.vertex(2)) + num_vertices)
+        #define V11 d(int(f.vertex(0)))
+        #define V12 d(int(f.vertex(0)) + num_vertices)
+        #define V21 d(int(f.vertex(1)))
+        #define V22 d(int(f.vertex(1)) + num_vertices)
+        #define V31 d(int(f.vertex(2)))
+        #define V32 d(int(f.vertex(2)) + num_vertices)
         
         
         double a = V11*V22 - V12*V21 - V11*V32 + V12*V31 + V21*V32 - V22*V31;
@@ -653,13 +659,13 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
     }
 }
 
-double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, const Eigen::VectorXd& dk,
+double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd& dk,
                       Triangles& map) {
     // Line search using Wolfe conditions
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
-    double alphaMax = minimum_step_singularities(map, xk, xk_1);
+    double alphaMax = minimum_step_singularities(map, xk_search, dk);
     // double alphaMax = determineAlphaMax(xk_search, dk, map);
     // double alphaStep = std::min(1.0, 0.8 * alphaMax);
     double alphaStep = 0.9 * alphaMax;
