@@ -398,7 +398,7 @@ void TrianglesMapping::updateUV(Triangles& map, const Eigen::VectorXd& xk) {
 double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map) {
 	double alphaMax = 1.0;
-	double decrement = 0.1;
+	double decrement = 1e-4;
 	std::vector<int> ind_flip;
 
 	while (alphaMax > 0) {
@@ -420,6 +420,45 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	}
 	return alphaMax;
 }
+
+/*double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
+                                            Triangles& map) {
+    double alphaMax = 1.0;
+
+    // Extract vertices and facets from the map
+    Eigen::MatrixXd uv(map.num_vertices(), 2);
+    Eigen::MatrixXi F(map.num_facets(), 3);
+
+    for (auto f : map.iter_facets()) {
+        for (int j = 0; j < 3; ++j) {
+            int v_idx = int(f.vertex(j));
+            F(f.index(), j) = v_idx;
+            uv(v_idx, 0) = f.vertex(j).pos()[0];
+            uv(v_idx, 1) = f.vertex(j).pos()[2];
+        }
+    }
+
+    Eigen::MatrixXd d = Eigen::MatrixXd::Zero(uv.rows(), 2);
+    for (int i = 0; i < uv.rows(); ++i) {
+        d(i, 0) = dk(i);
+        d(i, 1) = dk(i + num_vertices);
+    }
+
+    if (uv.cols() == 2) {
+        for (int f = 0; f < F.rows(); ++f) {
+            double min_positive_root = get_min_pos_root_2D(uv, F, d, f);
+            alphaMax = std::min(alphaMax, min_positive_root);
+        }
+    } else {
+        for (int f = 0; f < F.rows(); ++f) {
+            double min_positive_root = get_min_pos_root_3D(uv, F, d, f);
+            alphaMax = std::min(alphaMax, min_positive_root);
+        }
+    }
+
+    return alphaMax;
+}
+*/
 
 void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_linesearch) {
 	// schaeffer_e = log_e = conf_e = amips = 0;
