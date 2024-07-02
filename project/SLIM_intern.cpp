@@ -733,9 +733,10 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
     std::cout << "lineSearch: " << std::endl;
     double alphaMax = minimum_step_singularities(map, xk_search, dk);
     // double alphaMax = determineAlphaMax(xk_search, dk, map);
-    // double alphaStep = std::min(1.0, 0.8 * alphaMax);
-    double alphaStep = 0.9 * alphaMax;
-    double alphaTest = 0.9 * alphaMax;
+    
+    double alphaStep = 0.99 * alphaMax;
+    double alphaStep = std::min(1.0, 0.8 * alphaMax);
+    double alphaTest = 0.99 * alphaMax;
 
     Eigen::VectorXd pk = xk_search + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
@@ -1174,8 +1175,8 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     mLocGlo.connect();
 
     std::ofstream timeFile("iteration_times.txt"); // Open a file for writing times
-	for (int i = 0; i < max_iterations; ++i) {
     auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < max_iterations; ++i) {
 	
     jacobian_rotation_area(mLocGlo, false);
 	std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
