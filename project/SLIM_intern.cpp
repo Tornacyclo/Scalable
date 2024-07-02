@@ -626,6 +626,7 @@ void TrianglesMapping::computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad
         add_energies_jacobians(new_energy, true);
 
         grad[i] = (new_energy - original_energy) / h;
+        std::cout << i << std::endl;
     }
 }
 
@@ -647,16 +648,20 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
     // Accumulate the gradients from Dx
     for (int k = 0; k < Dx.outerSize(); ++k) {
         for (Eigen::SparseMatrix<double>::InnerIterator it(Dx, k); it; ++it) {
-            grad[it.row()] += it.value();
+            grad[it.row()] += Af(k, k) * it.value();
         }
     }
 
     // Accumulate the gradients from Dy, offset by num_vertices for the y-component
     for (int k = 0; k < Dy.outerSize(); ++k) {
         for (Eigen::SparseMatrix<double>::InnerIterator it(Dy, k); it; ++it) {
-            grad[it.row() + num_vertices] += it.value();
+            grad[it.row() + num_vertices] += Af(k, k) * it.value();
         }
     }
+
+    /*double s1_g = 2* (s1-pow(s1,-3)); 
+          double s2_g = 2 * (s2-pow(s2,-3));
+          m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));*/
 }
 
 double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd& dk,
@@ -687,15 +692,8 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
     /*for (auto v : map.iter_vertices()) {
         v.pos()[0] = pk(int(v));
         v.pos()[2] = pk(int(v) + num_vertices);
-    }
-    updateUV(map, pk);
-    jacobian_rotation_area(map, true);*/
-    add_energies_jacobians(new_ener, true);
-    
-    // Compute gradient of pk
+    }*/
     Eigen::VectorXd grad_pk = Eigen::VectorXd::Zero(pk.size());
-    // computeGradient(pk, grad_pk, map);
-	computeAnalyticalGradient(pk, grad_pk, map);
 
     // Wolfe conditions
     auto wolfe1 = [&]() {
@@ -714,8 +712,8 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
     // Bisection line search with max_iter limit
     double alphaLow = 0.0;
     double alphaHigh = alphaMax;
-    int max_iter = 100; // Maximum number of iterations
-    int iter = 0; // Current iteration
+    int max_iter = 40;
+    int iter = 0;
 
     while (alphaHigh - alphaLow > 1e-8 && iter < max_iter) {
         if (!wolfe1()) {
@@ -723,6 +721,14 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
             alphaStep = (alphaLow + alphaHigh) / 2.0;
             
         } else if (!wolfe2()) {
+            /*updateUV(map, pk);
+            jacobian_rotation_area(map, true);*/
+            add_energies_jacobians(new_ener, true);
+            // Compute gradient of pk
+            
+            // computeGradient(pk, grad_pk, map);
+            computeAnalyticalGradient(pk, grad_pk, map);
+
             if (grad_pk.dot(dk) > 0) {
                 alphaHigh = alphaStep;
             }
@@ -752,7 +758,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
         iter++; // Increment iteration counter
     }
 
-    return alphaTest;
+    return alphaStep;
 }
 
 void TrianglesMapping::nextStep(Triangles& map) {
@@ -1201,61 +1207,7 @@ int main(int argc, char** argv) {
 
 	----------------------------------------3D to 2D----------------------------------------
 
-	#include <iostream>
-#include <Eigen/Dense>
 
-using namespace Eigen;
-
-Matrix3d computeJacobian(const Vector3d &A, const Vector3d &B, const Vector3d &C, const Vector2d &A_prime, const Vector2d &B_prime, const Vector2d &C_prime) {
-    Matrix3d J;
-
-    // Compute the edges in 3D
-    Vector3d AB = B - A;
-    Vector3d AC = C - A;
-
-    // Compute the edges in 2D
-    Vector2d AB_prime = B_prime - A_prime;
-    Vector2d AC_prime = C_prime - A_prime;
-
-    // Set up the Jacobian matrix
-    J(0, 0) = AB_prime.x() / AB.x();
-    J(0, 1) = AB_prime.x() / AB.y();
-    J(0, 2) = AB_prime.x() / AB.z();
-
-    J(1, 0) = AB_prime.y() / AB.x();
-    J(1, 1) = AB_prime.y() / AB.y();
-    J(1, 2) = AB_prime.y() / AB.z();
-
-    J(2, 0) = AC_prime.x() / AC.x();
-    J(2, 1) = AC_prime.x() / AC.y();
-    J(2, 2) = AC_prime.x() / AC.z();
-
-    return J;
-}
-
-int main() {
-    // Define the vertices of the 3D triangle
-    Vector3d A(0.0, 0.0, 0.0);
-    Vector3d B(1.0, 0.0, 0.0);
-    Vector3d C(0.0, 1.0, 0.0);
-
-    // Define the vertices of the 2D triangle (deformation)
-    Vector2d A_prime(0.0, 0.0);
-    Vector2d B_prime(1.0, 0.0);
-    Vector2d C_prime(0.0, 1.0);
-
-    // Compute the Jacobian
-    Matrix3d J = computeJacobian(A, B, C, A_prime, B_prime, C_prime);
-
-    std::cout << "Jacobian Matrix:\n" << J << std::endl;
-
-    // Compute the inverse of the Jacobian
-    Matrix3d J_inv = J.inverse();
-
-    std::cout << "Inverse Jacobian Matrix:\n" << J_inv << std::endl;
-
-    return 0;
-}
 #include <vector>
 #include <Eigen/Dense>
 
