@@ -20,6 +20,8 @@
 #include <eigen3/Eigen/Sparse>
 #include <eigen3/Eigen/IterativeLinearSolvers>
 
+#include <fstream>
+
 
 
 #ifdef linux

@@ -74,7 +74,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         double twiceArea = std::abs(e0.x() * e1.y() - e0.y() * e1.x());
         Eigen::Matrix2d grad;
         grad << e1.y(), -e2.y(), -e1.x(), e2.x();
-        grad /= twiceArea;
+        // grad /= twiceArea;
 
         /*Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1/twiceArea));
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1/twiceArea));
@@ -98,11 +98,11 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             int v_ind = int(f.vertex(j));
 
             // Ji=[D1*u, D2*u, D1*v, D2*v];
-            J_i(0, 0) += grad(0, 0) * f.vertex(j).pos()[0];
-            J_i(1, 0) += grad(0, 1) * f.vertex(j).pos()[2];
+            J_i(0, 0) += grad(1, 0) * f.vertex(j).pos()[0];
+            J_i(1, 0) += grad(0, 0) * f.vertex(j).pos()[2];
 
-            J_i(0, 1) += grad(1, 0) * f.vertex(j).pos()[0];
-            J_i(1, 1) += grad(1, 1) * f.vertex(j).pos()[2];
+            J_i(0, 1) += grad(1, 1) * f.vertex(j).pos()[0];
+            J_i(1, 1) += grad(0, 1) * f.vertex(j).pos()[2];
 
             if (!lineSearch) {
                 xk_1(v_ind) = f.vertex(j).pos()[0];
@@ -1170,9 +1170,13 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 }
 
 void TrianglesMapping::LocalGlobalParametrization(const char* map) {
-	read_by_extension(map, mLocGlo);
+    read_by_extension(map, mLocGlo);
     mLocGlo.connect();
+
+    std::ofstream timeFile("iteration_times.txt"); // Open a file for writing times
 	for (int i = 0; i < max_iterations; ++i) {
+    auto start = std::chrono::high_resolution_clock::now();
+	
     jacobian_rotation_area(mLocGlo, false);
 	std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
     update_weights();
@@ -1230,7 +1234,18 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         system((std::string("graphite ") + output_name).c_str());
         #endif
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); // Calculate duration in milliseconds
+
+    if (timeFile.is_open()) {
+            timeFile << "Iteration " << i << ": " << duration << " ms\n"; // Write iteration number and duration to file
+        }
 	}
+
+    if (timeFile.is_open()) {
+        timeFile.close(); // Close the file
+    }
 }
 
 void updateProgressBar(int progress) {
