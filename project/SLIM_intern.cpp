@@ -85,30 +85,34 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1/twiceArea));
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1/twiceArea));*/
 
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1));
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1));
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1));
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), 1));
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), -1));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
 
         for (int j = 0; j < 3; ++j) {
             int v_ind = int(f.vertex(j));
 
             // Ji=[D1*u, D2*u, D1*v, D2*v];
-            J_i(0, 0) += grad(1, 0) * f.vertex(j).pos()[0];
+            /*J_i(0, 0) += grad(1, 0) * f.vertex(j).pos()[0];
             J_i(1, 0) += grad(0, 0) * f.vertex(j).pos()[2];
 
             J_i(0, 1) += grad(1, 1) * f.vertex(j).pos()[0];
-            J_i(1, 1) += grad(0, 1) * f.vertex(j).pos()[2];
+            J_i(1, 1) += grad(0, 1) * f.vertex(j).pos()[2];*/
 
             if (!lineSearch) {
                 xk_1(v_ind) = f.vertex(j).pos()[0];
                 xk_1(v_ind + num_vertices) = f.vertex(j).pos()[2];
             }
         }
+
+        J_i(0, 0) = f.vertex(1).pos()[0] - f.vertex(0).pos()[0];
+        J_i(1, 0) = f.vertex(1).pos()[2] - f.vertex(0).pos()[2];
+
+        J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
+        J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
 
         Grad.push_back(grad);
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
@@ -343,7 +347,9 @@ void TrianglesMapping::least_squares() {
     Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver; // BiCGSTAB solver for square matrices
     // Eigen::LeastSquaresConjugateGradient<Eigen::SparseMatrix<double>> solver; // LeastSquaresConjugateGradient solver for rectangular matrices
 	double lambda = 0.0001;
-    solver.compute(A.transpose() * A + lambda * Eigen::MatrixXd::Identity(2 * num_vertices, 2 * num_vertices));
+    Eigen::SparseMatrix<double> AtA = A.transpose() * A + lambda * Eigen::MatrixXd::Identity(2 * num_vertices, 2 * num_vertices);
+    solver.compute(AtA);
+    // solver.compute(A.transpose() * A);
 
 	if(solver.info() != Eigen::Success) {
 		// Decomposition failed
@@ -352,8 +358,9 @@ void TrianglesMapping::least_squares() {
 	}
 
 	// xk = solver.solve(Eigen::VectorXd::Zero(num_vertices * 2));
-    // xk = solver.solve(b);
-	xk = solver.solve(A.transpose() * b + lambda * xk_1);
+    // xk = solver.solve(A.transpose() * b);
+    Eigen::MatrixXd Atb = A.transpose() * b + lambda * xk_1;
+	xk = solver.solve(Atb);
 
 	if(solver.info() != Eigen::Success) {
 		// Solving failed
@@ -636,9 +643,22 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
             Eigen::Vector2d pos;
             pos(0) = facet_i.vertex(j).pos()[0];
             pos(1) = facet_i.vertex(j).pos()[2];
-            Eigen::Matrix2d grad_J;
+            
+            Eigen::Matrix2d grad_J = Eigen::Matrix2d::Zero();
+            Eigen::Vector2d e1;
+            Eigen::Vector2d e2;
+            e1(0) = facet_i.vertex(1).pos()[0] - facet_i.vertex(0).pos()[0];
+            e1(1) = facet_i.vertex(1).pos()[2] - facet_i.vertex(0).pos()[2];
+            e2(0) = facet_i.vertex(2).pos()[0] - facet_i.vertex(0).pos()[0];
+            e2(1) = facet_i.vertex(2).pos()[2] - facet_i.vertex(0).pos()[2];
 
-            grad_J = Grad[i];
+            // Partial derivatives of e1 and e2 with respect to vertex positions
+            Eigen::Matrix2d de1_dv0 = -Eigen::Matrix2d::Identity(); // Partial derivative of e1 w.r.t v0
+            Eigen::Matrix2d de1_dv1 = Eigen::Matrix2d::Identity();  // Partial derivative of e1 w.r.t v1
+            Eigen::Matrix2d de2_dv0 = -Eigen::Matrix2d::Identity(); // Partial derivative of e2 w.r.t v0
+            Eigen::Matrix2d de2_dv2 = Eigen::Matrix2d::Identity();  // Partial derivative of e2 w.r.t v2
+
+            grad_J += (de1_dv0 + de2_dv0); // Combine contributions from all vertices
 
             Eigen::Matrix2d dJ = grad_J * (Jac[i] - R_i);
 
@@ -735,7 +755,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
     // double alphaMax = determineAlphaMax(xk_search, dk, map);
     
     double alphaStep = 0.99 * alphaMax;
-    double alphaStep = std::min(1.0, 0.8 * alphaMax);
+    alphaStep = std::min(1.0, 0.8 * alphaMax);
     double alphaTest = 0.99 * alphaMax;
 
     Eigen::VectorXd pk = xk_search + alphaStep * dk;
@@ -1175,77 +1195,87 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     mLocGlo.connect();
 
     std::ofstream timeFile("iteration_times.txt"); // Open a file for writing times
-    auto start = std::chrono::high_resolution_clock::now();
+    auto totalStart = std::chrono::high_resolution_clock::now(); // Start timing for total duration
+    long long totalTime = 0; // Initialize total time accumulator
+
 	for (int i = 0; i < max_iterations; ++i) {
-	
-    jacobian_rotation_area(mLocGlo, false);
-	std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
-    update_weights();
-	std::cout << "update_weights();" << std::endl;
-    least_squares();
-	std::cout << "least_squares();" << std::endl;
-    nextStep(mLocGlo);
-	std::cout << "nextStep(mLocGlo);" << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
+        jacobian_rotation_area(mLocGlo, false);
+        std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
+        update_weights();
+        std::cout << "update_weights();" << std::endl;
+        least_squares();
+        std::cout << "least_squares();" << std::endl;
+        nextStep(mLocGlo);
+        std::cout << "nextStep(mLocGlo);" << std::endl;
 
-	std::filesystem::path filepath = map;
-	std::string filepath_str_ext = filepath.extension().string();
-	std::string filepath_str_stem = filepath.stem().string();
-	const char* ext = filepath_str_ext.c_str();
-	const char* stem = filepath_str_stem.c_str();
+        std::filesystem::path filepath = map;
+        std::string filepath_str_ext = filepath.extension().string();
+        std::string filepath_str_stem = filepath.stem().string();
+        const char* ext = filepath_str_ext.c_str();
+        const char* stem = filepath_str_stem.c_str();
 
-	char ext2[12] = ".geogram";
-	char method[20] = "_local_global_";
-	char attribute[20] = "_distortion_";
-	char numStr[20];
-	
-	output_name[0] = '\0'; // Clear output_name
-	const char* first_space = strchr(stem, '_'); // Find the first space in stem
-	size_t first_word_length = first_space ? (size_t)(first_space - stem) : strlen(stem); // Calculate length of the first word
-	strncpy(output_name, stem, first_word_length);
-	output_name[first_word_length] = '\0'; // Ensure null-termination
-	strcat(output_name, method);
-	strcat(output_name, energy);
-	strcat(output_name, attribute);
-	sprintf(numStr, "%d", i);
-	strcat(output_name, numStr);
-	strcat(output_name, ext2);
+        char ext2[12] = ".geogram";
+        char method[20] = "_local_global_";
+        char attribute[20] = "_distortion_";
+        char numStr[20];
+        
+        output_name[0] = '\0'; // Clear output_name
+        const char* first_space = strchr(stem, '_'); // Find the first space in stem
+        size_t first_word_length = first_space ? (size_t)(first_space - stem) : strlen(stem); // Calculate length of the first word
+        strncpy(output_name, stem, first_word_length);
+        output_name[first_word_length] = '\0'; // Ensure null-termination
+        strcat(output_name, method);
+        strcat(output_name, energy);
+        strcat(output_name, attribute);
+        sprintf(numStr, "%d", i);
+        strcat(output_name, numStr);
+        strcat(output_name, ext2);
 
-    CornerAttribute<double> he(mLocGlo);
-    for (auto f : mLocGlo.iter_halfedges()) {
-        if (blade.contains(f.from()) || blade.contains(f.to())) {
-            he[f] = 404;
-        } else {
-            he[f] = 0;
+        CornerAttribute<double> he(mLocGlo);
+        for (auto f : mLocGlo.iter_halfedges()) {
+            if (blade.contains(f.from()) || blade.contains(f.to())) {
+                he[f] = 404;
+            } else {
+                he[f] = 0;
+            }
         }
-    }
 
-    FacetAttribute<double> fa(mLocGlo);
-    for (auto f : mLocGlo.iter_facets()) {
-        fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
-    }
+        FacetAttribute<double> fa(mLocGlo);
+        for (auto f : mLocGlo.iter_facets()) {
+            fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
+        }
 
-    write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
-	std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
-	if (i % 20 == 0) {
-        #ifdef _WIN32
-        // Open the generated mesh with Graphite
-        int result = system((getGraphitePath() + " " + output_name).c_str());
-        #endif
-        #ifdef linux
-        system((std::string("graphite ") + output_name).c_str());
-        #endif
-    }
+        write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
+        std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
+        if (i % 20 == 0) {
+            #ifdef _WIN32
+            // Open the generated mesh with Graphite
+            int result = system((getGraphitePath() + " " + output_name).c_str());
+            #endif
+            #ifdef linux
+            system((std::string("graphite ") + output_name).c_str());
+            #endif
+        }
 
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); // Calculate duration in milliseconds
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); // Calculate duration in milliseconds
+        totalTime += duration; // Accumulate total time
 
-    if (timeFile.is_open()) {
-            timeFile << "Iteration " << i << ": " << duration << " ms\n"; // Write iteration number and duration to file
+        if (timeFile.is_open()) {
+            timeFile << "Iteration " << i << ": " << duration << " ms — "; // Write iteration number and duration to file
+        }
+
+        auto totalEnd = std::chrono::high_resolution_clock::now();
+        auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count(); // Calculate total duration in milliseconds
+
+        if (timeFile.is_open()) {
+            timeFile << "Total time: " << totalDuration << " ms\n"; // Log total time
         }
 	}
 
     if (timeFile.is_open()) {
-        timeFile.close(); // Close the file
+        timeFile.close();
     }
 }
 
