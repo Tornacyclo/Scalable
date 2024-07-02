@@ -76,14 +76,23 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         grad << e1.y(), -e2.y(), -e1.x(), e2.x();
         grad /= twiceArea;
 
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1/twiceArea));
+        /*Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1/twiceArea));
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1/twiceArea));
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), 1/twiceArea));
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1/twiceArea));
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1/twiceArea));
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), -1/twiceArea));
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1/twiceArea));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1/twiceArea));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1/twiceArea));*/
+
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), 1));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), -1));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1));
 
         for (int j = 0; j < 3; ++j) {
             int v_ind = int(f.vertex(j));
