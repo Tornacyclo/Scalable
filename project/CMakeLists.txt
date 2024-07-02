@@ -5,11 +5,14 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(SLIM_intern SLIM_intern.cpp)
+add_executable(uvToWorld uvToWorld.cpp)
 
 target_link_libraries(SLIM_intern ${CMAKE_DL_LIBS} ultimaille $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>)
+target_link_libraries(uvToWorld ${CMAKE_DL_LIBS} ultimaille $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>)
 
 IF (NOT WIN32)
     target_link_libraries(SLIM_intern m)
+    target_link_libraries(uvToWorld m)
 ENDIF()
 
 # Copy asset files to build directory

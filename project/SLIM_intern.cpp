@@ -427,11 +427,11 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
     for (auto f : map.iter_facets()) {
         // Get quadratic coefficients (ax^2 + b^x + c)
         /*#define U11 f.vertex(0).pos()[0]
-        #define U12 f.vertex(0).pos()[1]
+        #define U12 f.vertex(0).pos()[2]
         #define U21 f.vertex(1).pos()[0]
-        #define U22 f.vertex(1).pos()[1]
+        #define U22 f.vertex(1).pos()[2]
         #define U31 f.vertex(2).pos()[0]
-        #define U32 f.vertex(2).pos()[1]*/
+        #define U32 f.vertex(2).pos()[2]*/
         #define U11 x(int(f.vertex(0)))
         #define U12 x(int(f.vertex(0)) + num_vertices)
         #define U21 x(int(f.vertex(1)))
@@ -598,6 +598,52 @@ void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_li
 	}
 }
 
+void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map) {
+    grad = Eigen::VectorXd::Zero(2 * num_vertices);
+
+    for (int i = 0; i < num_triangles; i++) {
+        Eigen::JacobiSVD<Eigen::Matrix2d> svd(Jac[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
+        Eigen::Matrix2d Ui = svd.matrixU();
+        Eigen::Matrix2d Vi = svd.matrixV();
+        Eigen::Vector2d singu = svd.singularValues();
+
+        double s1 = singu(0);
+        double s2 = singu(1);
+
+        Eigen::Matrix2d R_i = Ui * Vi.transpose();
+
+        // Compute the gradient of the ARAP energy
+        for (int j = 0; j < 3; ++j) {
+            Surface::Facet facet_i(map, i);
+            int v_ind = int(facet_i.vertex(j));
+
+            Eigen::Vector2d pos;
+            pos(0) = facet_i.vertex(j).pos()[0];
+            pos(1) = facet_i.vertex(j).pos()[2];
+            Eigen::Matrix2d grad_J;
+
+            grad_J << Dx.coeff(i, v_ind), Dy.coeff(i, v_ind),
+                      Dx.coeff(i, v_ind + num_vertices), Dy.coeff(i, v_ind + num_vertices);
+
+            Eigen::Matrix2d dJ = grad_J * (Jac[i] - R_i);
+
+            for (int k = 0; k < 2; ++k) {
+                grad(v_ind + k * num_vertices) += 2 * Af(i, i) * dJ(k, 0) * (s1 - 1) + dJ(k, 1) * (s2 - 1);
+            }
+
+            if (flips_linesearch && Ui.determinant() * Vi.determinant() <= 0) {
+                Vi.col(1) *= -1;
+                Eigen::Matrix2d flip_R_i = Ui * Vi.transpose();
+                Eigen::Matrix2d dJ_flipped = grad_J * (Jac[i] - flip_R_i);
+
+                for (int k = 0; k < 2; ++k) {
+                    grad(v_ind + k * num_vertices) += Af(i, i) * (dJ_flipped(k, 0) * (s1 - 1) + dJ_flipped(k, 1) * (s2 - 1));
+                }
+            }
+        }
+    }
+}
+
 void TrianglesMapping::computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
     double h = 1e-5; // small step for finite differences
     double original_energy;
@@ -687,7 +733,8 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
     // Compute gradient of xk_search
     Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk_search.size());
     // computeGradient(xk_search, grad_xk, map);
-	computeAnalyticalGradient(xk_search, grad_xk, map);
+	// computeAnalyticalGradient(xk_search, grad_xk, map);
+    compute_energy_gradient(grad_xk, true, map);
     
     /*for (auto v : map.iter_vertices()) {
         v.pos()[0] = pk(int(v));
@@ -721,13 +768,14 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
             alphaStep = (alphaLow + alphaHigh) / 2.0;
             
         } else if (!wolfe2()) {
-            /*updateUV(map, pk);
-            jacobian_rotation_area(map, true);*/
+            updateUV(map, pk);
+            jacobian_rotation_area(map, true);
             add_energies_jacobians(new_ener, true);
             // Compute gradient of pk
             
             // computeGradient(pk, grad_pk, map);
-            computeAnalyticalGradient(pk, grad_pk, map);
+            // computeAnalyticalGradient(pk, grad_pk, map);
+            compute_energy_gradient(grad_pk, true, map);
 
             if (grad_pk.dot(dk) > 0) {
                 alphaHigh = alphaStep;
@@ -746,14 +794,15 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
         /*for (auto v : map.iter_vertices()) {
             v.pos()[0] = pk(int(v));
             v.pos()[2] = pk(int(v) + num_vertices);
-        }
+        }*/
         updateUV(map, pk);
-        jacobian_rotation_area(map, true);*/
+        jacobian_rotation_area(map, true);
         add_energies_jacobians(new_ener, true);
 
         // Compute gradient of pk
         // computeGradient(pk, grad_pk, map);
-		computeAnalyticalGradient(pk, grad_pk, map);
+		// computeAnalyticalGradient(pk, grad_pk, map);
+        compute_energy_gradient(grad_pk, true, map);
 
         iter++; // Increment iteration counter
     }

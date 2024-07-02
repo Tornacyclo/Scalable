@@ -90,6 +90,7 @@ private:
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
     void add_energies_jacobians(double& norm_arap_e, bool flips_linesearch);
+    void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
     void computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     double lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd& dk,
