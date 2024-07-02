@@ -2,7 +2,7 @@
 #define UV_TO_WORLD_H
 
 
-#include <Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 #include <ultimaille/all.h>
 
 

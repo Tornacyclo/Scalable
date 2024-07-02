@@ -14,19 +14,21 @@ Eigen::Matrix3d uvToWorld(const vec3 &A, const vec3 &B, const vec3 &C, const vec
     vec2 AB_prime = B_prime - A_prime;
     vec2 AC_prime = C_prime - A_prime;
 
+
     // Set up the Jacobian matrix, dim 0 = x, dim 2 = y, dim 1 = z
     J(0, 0) = AB_prime[0] / AB[0];
     J(0, 1) = AB_prime[0] / AB[2];
     J(0, 2) = AB_prime[0] / AB[1];
 
-    J(1, 0) = AB_prime[1] / AB[0]; // Corrected index from 2 to 1
-    J(1, 1) = AB_prime[1] / AB[2]; // Corrected index from 2 to 1
-    J(1, 2) = AB_prime[1] / AB[1]; // Corrected index from 2 to 1
+    J(1, 0) = AB_prime[2] / AB[0];
+    J(1, 1) = AB_prime[2] / AB[2];
+    J(1, 2) = AB_prime[2] / AB[1];
 
     J(2, 0) = AC_prime[0] / AC[0];
     J(2, 1) = AC_prime[0] / AC[2];
     J(2, 2) = AC_prime[0] / AC[1];
 
+    
     return J;
 }
 
