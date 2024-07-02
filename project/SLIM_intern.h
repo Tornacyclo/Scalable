@@ -69,7 +69,7 @@ private:
 
     int num_vertices;
 	int num_triangles;
-    std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
+    std::vector<Eigen::Matrix2d> Rot, Jac, Wei, Grad;
     Eigen::MatrixXd Af; // Area factor
     Eigen::SparseMatrix<double> Dx, Dy;
     Eigen::VectorXi dx_i, dx_j;////////////////////////

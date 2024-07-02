@@ -76,11 +76,17 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         grad << e1.y(), -e2.y(), -e1.x(), e2.x();
         grad /= twiceArea;
 
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1/twiceArea));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1/twiceArea));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), 1/twiceArea));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), -1/twiceArea));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1/twiceArea));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), -1/twiceArea));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1/twiceArea));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1/twiceArea));
+
         for (int j = 0; j < 3; ++j) {
             int v_ind = int(f.vertex(j));
-
-            Dx_triplets.push_back(Eigen::Triplet<double>(ind, v_ind, grad(0, j)));
-            Dy_triplets.push_back(Eigen::Triplet<double>(ind, v_ind, grad(1, j)));
 
             // Ji=[D1*u, D2*u, D1*v, D2*v];
             J_i(0, 0) += grad(0, 0) * f.vertex(j).pos()[0];
@@ -95,6 +101,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             }
         }
 
+        Grad.push_back(grad);
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
@@ -622,8 +629,7 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
             pos(1) = facet_i.vertex(j).pos()[2];
             Eigen::Matrix2d grad_J;
 
-            grad_J << Dx.coeff(i, v_ind), Dy.coeff(i, v_ind),
-                      Dx.coeff(i, v_ind + num_vertices), Dy.coeff(i, v_ind + num_vertices);
+            grad_J = Grad[i];
 
             Eigen::Matrix2d dJ = grad_J * (Jac[i] - R_i);
 
