@@ -21,7 +21,6 @@
 #include <eigen3/Eigen/IterativeLinearSolvers>
 
 #include <fstream>
-#include "uvToWorld.h"
 
 
 
