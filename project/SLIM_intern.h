@@ -65,9 +65,9 @@ private:
     std::set<int> blade;
     std::set<int> bound;
     std::unordered_map<int, double> fOriMap;
-    FacetAttribute<double> area;
-    FacetAttribute<Eigen::Matrix2d> Shape;
-    FacetAttribute<mat<3,2>> ref_tri;
+    std::unordered_map<int, double> area;
+    std::unordered_map<int, Eigen::Matrix2d> Shape;
+    std::unordered_map<int, mat<3,2>> ref_tri;
     Eigen::MatrixXd EigenMap;
     char output_name[120];
     char energy[65] = "arap";

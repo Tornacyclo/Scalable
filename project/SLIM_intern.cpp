@@ -48,14 +48,14 @@ double TrianglesMapping::triangle_aspect_ratio_2d(const vec2& v0, const vec2& v1
 
 void TrianglesMapping::reference_mesh(Triangles& map) {
     for (int f : facet_iter(map)) {
-            area[f] = map.util.unsigned_area(f);
+            area[int(f)] = map.util.unsigned_area(f);
             vec2 A,B,C;
             map.util.project(f, A, B, C);
 
             double ar = triangle_aspect_ratio_2d(A, B, C);
             if (ar>10) { // If the aspect ratio is bad, assign an equilateral reference triangle
                 double a = ((B-A).norm() + (C-B).norm() + (A-C).norm())/3.; // Edge length is the average of the original triangle
-                area[f] = sqrt(3.)/4.*a*a;
+                area[int(f)] = sqrt(3.)/4.*a*a;
                 A = {0., 0.};
                 B = {a, 0.};
                 C = {a/2., std::sqrt(3.)/2.*a};
@@ -65,8 +65,8 @@ void TrianglesMapping::reference_mesh(Triangles& map) {
             Eigen::Matrix2d S;
             S << B.x - A.x, C.x - A.x,
                  B.y - A.y, C.y - A.y;
-            Shape[f] = S;
-            ref_tri[f] = mat<3,2>{{ {-1,-1},{1,0},{0,1} }}*ST.invert_transpose();
+            Shape[int(f)] = S;
+            ref_tri[int(f)] = mat<3,2>{{ {-1,-1},{1,0},{0,1} }}*ST.invert_transpose();
     }
 }
 
@@ -126,7 +126,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                1, 0,
                0, 1;
         
-        Z_i *= Shape[f].inverse();
+        Z_i *= Shape[int(f)].inverse();
 
         std::cout << "Z_i: " << std::endl << Z_i << std::endl;
 
@@ -159,7 +159,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
         J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
 
-        J_i *= Shape[f].inverse();
+        J_i *= Shape[int(f)].inverse();
 
         Grad.push_back(grad);
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
@@ -1027,11 +1027,11 @@ void TrianglesMapping::nextStep(Triangles& map) {
 }
 
 void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {
-    double area = 0;
+    double area_b = 0;
     for (auto f : map.iter_facets()) {
-        area += calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        area_b += calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
     }
-    double radius = sqrt(area / (M_PI));
+    double radius = sqrt(area_b / (M_PI));
 
     int total_len = bound.size();
     int len_i = 0;
