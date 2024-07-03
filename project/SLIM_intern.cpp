@@ -215,7 +215,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             // Adjust the sign of the last column of U or V
             U.col(1) *= -1;
             R_i = U * V.transpose();
-        }*/
+        }
     
         // Store R_i in the vector
         Rot.push_back(R_i);
