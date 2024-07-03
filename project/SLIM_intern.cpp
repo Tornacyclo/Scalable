@@ -967,9 +967,12 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     mTut.connect();
 
 
+    int fixed = 0;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     Eigen::VectorXd x_I_ = Eigen::VectorXd::Zero(nverts);
-    for (auto he : f.iter_halfedges()) {
+    int insider = 0;
+    std::set<int> plane;
+    for (auto he : mOri.iter_halfedges()) {
         if (!he.opposite().active()) {
             blade.insert(he.from());
             x_B_(int(he.from())) = fixed;
