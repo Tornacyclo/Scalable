@@ -967,36 +967,24 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     mTut.connect();
 
 
-    int fixed = 0;
+    /*int fixed = 0;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     Eigen::VectorXd x_I_ = Eigen::VectorXd::Zero(nverts);
-    int insider = 0;
-    std::set<int> plane;
+    int insider = 0;*/
+    std::set<int> bound;
     for (auto he : mOri.iter_halfedges()) {
         if (!he.opposite().active()) {
-            blade.insert(he.from());
-            x_B_(int(he.from())) = fixed;
-            fixed++;
-            blade.insert(he.to());
-            x_B_(int(he.to())) = fixed;
-            fixed++;
-        }
-        else {
-            plane.insert(he.from());
-            x_I_(int(he.from())) = insider;
-            insider++;
-            plane.insert(he.to());
-            x_I_(int(he.to())) = insider;
-            insider++;
+            bound.insert(he.from());
+            bound.insert(he.to());
         }
     }
 
-    /*int fixed = 0;
+    int fixed = 0;
     // std::set<int> blade;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     for (int i = 0; i < mTut.nverts(); i++) {
         Surface::Vertex vi = Surface::Vertex(mOri, i);
-        if (vi.pos()[1] <= cuttingSurface + dcuttingSurface && vi.pos()[1] >= cuttingSurface - dcuttingSurface) {
+        if (bound.contains(vi)) {
             blade.insert(vi);
             x_B_(i) = fixed;
             fixed++;
@@ -1008,12 +996,12 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     std::set<int> plane;
     for (int i = 0; i < mTut.nverts(); i++) {
         Surface::Vertex vi = Surface::Vertex(mOri, i);
-        if (vi.pos()[1] <= cuttingSurface - dcuttingSurface || vi.pos()[1] >= cuttingSurface + dcuttingSurface) {
+        if (!bound.contains(vi)) {
             plane.insert(vi);
             x_I_(i) = insider;
             insider++;
         }
-    }*/
+    }
 
     Eigen::SparseMatrix<double> A_II(nverts - fixed, nverts - fixed);
     Eigen::SparseMatrix<double> A_IB(nverts - fixed, fixed);
