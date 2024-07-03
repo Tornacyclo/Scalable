@@ -34,6 +34,42 @@ double TrianglesMapping::calculateCotan(const vec3& v0, const vec3& v1, const ve
     return cotan;
 }
 
+double TrianglesMapping::triangle_area_2d(const vec2& v0, const vec2& v1, const vec2& v2) {
+    return 0.5 * ((v1.y - v0.y) * (v1.x + v0.x) + (v2.y - v1.y) * (v2.x + v1.x) + (v0.y - v2.y) * (v0.x + v2.x));
+}
+
+double TrianglesMapping::triangle_aspect_ratio_2d(const vec2& v0, const vec2& v1, const vec2& v2) {
+    double l1 = (v1 - v0).norm();
+    double l2 = (v2 - v1).norm();
+    double l3 = (v0 - v2).norm();
+    double lmax = std::max(l1, std::max(l2, l3));
+    return lmax * (l1 + l2 + l3) / (4.0 * std::sqrt(3.0) * triangle_area_2d(v0, v1, v2));
+}
+
+void TrianglesMapping::reference_mesh(Triangles& map) {
+    for (int f : facet_iter(map)) {
+            area[f] = map.util.unsigned_area(f);
+            vec2 A,B,C;
+            map.util.project(f, A, B, C);
+
+            double ar = triangle_aspect_ratio_2d(A, B, C);
+            if (ar>10) { // If the aspect ratio is bad, assign an equilateral reference triangle
+                double a = ((B-A).norm() + (C-B).norm() + (A-C).norm())/3.; // Edge length is the average of the original triangle
+                area[f] = sqrt(3.)/4.*a*a;
+                A = {0., 0.};
+                B = {a, 0.};
+                C = {a/2., std::sqrt(3.)/2.*a};
+            }
+
+            mat<2,2> ST = {{B-A, C-A}};
+            Eigen::Matrix2d S;
+            S << B.x - A.x, C.x - A.x,
+                 B.y - A.y, C.y - A.y;
+            Shape[f] = S;
+            ref_tri[f] = mat<3,2>{{ {-1,-1},{1,0},{0,1} }}*ST.invert_transpose();
+    }
+}
+
 std::pair<Eigen::Vector3d, Eigen::Vector3d> TrianglesMapping::compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3) {
 		double A = 0.5 * std::fabs(u1 * v2 + u2 * v3 + u3 * v1 - u1 * v3 - u2 * v1 - u3 * v2);
 		Eigen::Vector3d dudN, dvdN;
@@ -85,12 +121,21 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1/twiceArea));
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1/twiceArea));*/
 
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1));
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1));
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), -1));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), 1));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), 1));
+        Eigen::Matrix<double, 3, 2> Z_i;
+        Z_i << -1, -1,
+               1, 0,
+               0, 1;
+        
+        Z_i *= Shape[f].inverse();
+
+        std::cout << "Z_i: " << std::endl << Z_i << std::endl;
+
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), Z_i(0, 0) + Z_i(0, 1)));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), Z_i(1, 0)));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), Z_i(2, 1)));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), Z_i(0, 0) + Z_i(0, 1)));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), Z_i(1, 0)));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), Z_i(2, 1)));
 
         for (int j = 0; j < 3; ++j) {
             int v_ind = int(f.vertex(j));
@@ -113,6 +158,8 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
         J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
         J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
+
+        J_i *= Shape[f].inverse();
 
         Grad.push_back(grad);
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
@@ -153,7 +200,6 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         } else {
             // Adjust the sign of the last column of U or V
             U.col(1) *= -1;
-            // Now construct the rotation matrix R_i
             R_i = U * V.transpose();
         }
     
@@ -169,6 +215,89 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     Dx.setFromTriplets(Dx_triplets.begin(), Dx_triplets.end());
     Dy.setFromTriplets(Dy_triplets.begin(), Dy_triplets.end());
 }
+
+/*void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
+    num_vertices = map.nverts();
+    num_triangles = map.nfacets();
+    Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
+    Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
+    Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
+    if (!lineSearch) {
+        xk_1 = Eigen::VectorXd::Zero(2 * num_triangles);
+    }
+
+    Jac.clear();
+    Rot.clear();
+    int ind = 0;
+    std::vector<Eigen::Triplet<double>> Dx_triplets;
+    std::vector<Eigen::Triplet<double>> Dy_triplets;
+
+    // Initialize reference triangles
+    std::vector<Eigen::Matrix<double, 3, 2>> ref_tri(num_triangles);
+    std::vector<double> area(num_triangles);
+
+    for (int t = 0; t < num_triangles; ++t) {
+        auto f = map.facet(t);
+
+        Eigen::Vector2d A, B, C;
+        A << f.vertex(0).pos()[0], f.vertex(0).pos()[2];
+        B << f.vertex(1).pos()[0], f.vertex(1).pos()[2];
+        C << f.vertex(2).pos()[0], f.vertex(2).pos()[2];
+
+        double ar = triangle_aspect_ratio_2d(A, B, C);
+        if (ar > 10) {
+            double a = ((B - A).norm() + (C - B).norm() + (A - C).norm()) / 3.0;
+            area[t] = std::sqrt(3.0) / 4.0 * a * a;
+            A << 0.0, 0.0;
+            B << a, 0.0;
+            C << a / 2.0, std::sqrt(3.0) / 2.0 * a;
+        }
+
+        Eigen::Matrix2d ST;
+        ST.col(0) = B - A;
+        ST.col(1) = C - A;
+
+        ref_tri[t] << -1, -1,
+                       1,  0,
+                       0,  1;
+        ref_tri[t] = ref_tri[t] * ST.inverse().transpose();
+
+        area[t] = triangle_area_2d(A, B, C);
+    }
+
+    // Evaluate the Jacobian for each triangle
+    for (int t = 0; t < num_triangles; ++t) {
+        auto f = map.facet(t);
+        Eigen::Matrix2d J = Eigen::Matrix2d::Zero();
+
+        for (int i = 0; i < 3; ++i) {
+            int v_ind = int(f.vertex(i));
+            Eigen::Vector2d pos;
+            pos << f.vertex(i).pos()[0], f.vertex(i).pos()[2];
+
+            J += ref_tri[t].row(i).transpose() * pos.transpose();
+            
+            if (!lineSearch) {
+                xk_1(v_ind) = f.vertex(i).pos()[0];
+                xk_1(v_ind + num_vertices) = f.vertex(i).pos()[2];
+            }
+        }
+
+        Jac.push_back(J);
+
+        Eigen::JacobiSVD<Eigen::Matrix2d> svd(J, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        Eigen::Matrix2d U = svd.matrixU();
+        Eigen::Matrix2d V = svd.matrixV();
+        Eigen::Matrix2d R = U * V.transpose();
+        Rot.push_back(R);
+
+        Af(t, t) = std::sqrt(area[t]);
+        ind++;
+    }
+
+    Dx.setFromTriplets(Dx_triplets.begin(), Dx_triplets.end());
+    Dy.setFromTriplets(Dy_triplets.begin(), Dy_triplets.end());
+}*/
 
 void TrianglesMapping::update_weights() {
 	Wei.clear();
@@ -897,6 +1026,25 @@ void TrianglesMapping::nextStep(Triangles& map) {
     updateUV(map, xk);
 }
 
+void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {
+    double area = 0;
+    for (auto f : map.iter_facets()) {
+        area += calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+    }
+    double radius = sqrt(area / (M_PI));
+
+    int total_len = bound.size();
+    int len_i = 0;
+    for (auto v : map.iter_vertices()) {
+        if (bound.contains(v)) {
+            double frac = len_i * (2. * M_PI) / total_len;
+            v.pos()[0] = radius * cos(frac);
+            v.pos()[2] = radius * sin(frac);
+            len_i++;
+        }
+    }
+}
+
 void TrianglesMapping::Tut63(const int acount, char** avariable) {
     const char* name = nullptr;
     int weights = -1;
@@ -966,12 +1114,14 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     mOri.connect();
     mTut.connect();
 
+    reference_mesh(mOri);
+
 
     /*int fixed = 0;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     Eigen::VectorXd x_I_ = Eigen::VectorXd::Zero(nverts);
     int insider = 0;*/
-    std::set<int> bound;
+    // std::set<int> bound;
     for (auto he : mOri.iter_halfedges()) {
         if (!he.opposite().active()) {
             bound.insert(he.from());
@@ -1014,6 +1164,8 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     }
 
     Eigen::MatrixXd lhsF = Eigen::MatrixXd::Zero(nverts, 3);
+
+    bound_vertices_circle_normalized(mTut);
 
     int vert = 0;
     int bb = 0;
@@ -1277,6 +1429,8 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         strcat(output_name, numStr);
         strcat(output_name, ext2);
 
+        reference_mesh(mLocGlo);
+
         CornerAttribute<double> he(mLocGlo);
         for (auto f : mLocGlo.iter_halfedges()) {
             if (blade.contains(f.from()) || blade.contains(f.to())) {
@@ -1291,17 +1445,6 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
             fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
         }
 
-        write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
-        std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
-        if (i % 20 == 0) {
-            #ifdef _WIN32
-            // Open the generated mesh with Graphite
-            int result = system((getGraphitePath() + " " + output_name).c_str());
-            #endif
-            #ifdef linux
-            system((std::string("graphite ") + output_name).c_str());
-            #endif
-        }
 
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); // Calculate duration in milliseconds
@@ -1316,6 +1459,19 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
         if (timeFile.is_open()) {
             timeFile << "Total time: " << totalDuration << " ms\n"; // Log total time
+        }
+
+
+        write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
+        std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
+        if (i % 20 == 0) {
+            #ifdef _WIN32
+            // Open the generated mesh with Graphite
+            int result = system((getGraphitePath() + " " + output_name).c_str());
+            #endif
+            #ifdef linux
+            system((std::string("graphite ") + output_name).c_str());
+            #endif
         }
 	}
 
@@ -1511,59 +1667,7 @@ void TrianglesMapping::compute_double_area(Triangles& map, Eigen::VectorXd& dblA
 }*////////////////////// SLIM_intern.cpp //////////////////////
 
 
-	/*void map_vertices_to_circle_area_normalized(
-	const Eigen::MatrixXd& V,
-	const Eigen::MatrixXi& F,
-	const Eigen::VectorXi& bnd,
-	Eigen::MatrixXd& UV) {
 	
-	Eigen::VectorXd dblArea_orig; // TODO: remove me later, waste of computations
-	igl::doublearea(V,F, dblArea_orig);
-	double area = dblArea_orig.sum()/2;
-	double radius = sqrt(area / (M_PI));
-	cout << "map_vertices_to_circle_area_normalized, area = " << area << " radius = " << radius << endl;
-
-	// Get sorted list of boundary vertices
-	std::vector<int> interior,map_ij;
-	map_ij.resize(V.rows());
-	interior.reserve(V.rows()-bnd.size());
-
-	std::vector<bool> isOnBnd(V.rows(),false);
-	for (int i = 0; i < bnd.size(); i++)
-	{
-		isOnBnd[bnd[i]] = true;
-		map_ij[bnd[i]] = i;
-	}
-
-	for (int i = 0; i < (int)isOnBnd.size(); i++)
-	{
-		if (!isOnBnd[i])
-		{
-		map_ij[i] = interior.size();
-		interior.push_back(i);
-		}
-	}
-
-	// Map boundary to unit circle
-	std::vector<double> len(bnd.size());
-	len[0] = 0.;
-
-	for (int i = 1; i < bnd.size(); i++)
-	{
-		len[i] = len[i-1] + (V.row(bnd[i-1]) - V.row(bnd[i])).norm();
-	}
-	double total_len = len[len.size()-1] + (V.row(bnd[0]) - V.row(bnd[bnd.size()-1])).norm();
-
-	UV.resize(bnd.size(),2);
-	for (int i = 0; i < bnd.size(); i++)
-	{
-		double frac = len[i] * (2. * M_PI) / total_len;
-		UV.row(map_ij[bnd[i]]) << radius*cos(frac), radius*sin(frac);
-	}
-
-	}
-
-	*/
     
 
 	/////////////////////////// END ///////////////////////////

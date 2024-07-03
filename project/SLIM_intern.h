@@ -63,7 +63,11 @@ private:
     Triangles mTut;
     Triangles mLocGlo;
     std::set<int> blade;
+    std::set<int> bound;
     std::unordered_map<int, double> fOriMap;
+    FacetAttribute<double> area;
+    FacetAttribute<Eigen::Matrix2d> Shape;
+    FacetAttribute<mat<3,2>> ref_tri;
     Eigen::MatrixXd EigenMap;
     char output_name[120];
     char energy[65] = "arap";
@@ -78,6 +82,10 @@ private:
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
+    double triangle_area_2d(const vec2& v0, const vec2& v1, const vec2& v2);
+    double triangle_aspect_ratio_2d(const vec2& v0, const vec2& v1, const vec2& v2);
+    void reference_mesh(Triangles& map);
+    void bound_vertices_circle_normalized(Triangles& map);
     void Tut63(const int acount, char** avariable);
     std::pair<Eigen::Vector3d, Eigen::Vector3d> compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
     void jacobian_rotation_area(Triangles& map, bool lineSearch);
