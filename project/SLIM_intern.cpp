@@ -64,19 +64,6 @@ void TrianglesMapping::reference_mesh(Triangles& map) {
             mat<2,2> ST = {{B-A, C-A}};
             ref_tri[int(f)] = mat<3,2>{{ {-1,-1},{1,0},{0,1} }}*ST.invert_transpose();
 
-
-            const vec3 &Ap = map.points[map.vert(f, 0)];
-            const vec3 &Bp = map.points[map.vert(f, 1)];
-            const vec3 &Cp = map.points[map.vert(f, 2)];
-
-            vec3 X = (Bp - Ap).normalized(); // construct an orthonormal 3d basis
-            vec3 Z = cross(X, Cp - Ap).normalized();
-            vec3 Y = cross(Z, X);
-
-            A = vec2(0,0); // project the triangle to the 2d basis (X,Y)
-            B = vec2((Bp - Ap).norm(), 0);
-            C = vec2((Cp - Ap)*X, (Cp - Ap)*Y);
-
             Eigen::Matrix2d S;
             S << B.x - A.x, C.x - A.x,
                  B.y - A.y, C.y - A.y;
@@ -140,16 +127,16 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                1, 0,
                0, 1;
         
-        Z_i *= Shape[int(f)].transpose().inverse();
+        Z_i *= Shape[int(f)].inverse();
 
         std::cout << "Z_i: " << std::endl << Z_i << std::endl;
 
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), Z_i(0, 0) + Z_i(0, 1)));
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), Z_i(1, 0)));
-        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), Z_i(2, 1)));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), Z_i(1, 0) + Z_i(1, 1)));
+        Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), Z_i(2, 0) + Z_i(2, 1)));
         Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), Z_i(0, 0) + Z_i(0, 1)));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), Z_i(1, 0)));
-        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), Z_i(2, 1)));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), Z_i(1, 0) + Z_i(1, 1)));
+        Dy_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(2)), Z_i(2, 0) + Z_i(2, 1)));
 
         for (int j = 0; j < 3; ++j) {
             int v_ind = int(f.vertex(j));
@@ -208,14 +195,14 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         Eigen::Matrix2d R_i;
         R_i = U * V.transpose();
 
-        if ((U * V.transpose()).determinant() > 0) {
+        /*if ((U * V.transpose()).determinant() > 0) {
             // Construct the closest rotation matrix R_i
             R_i = U * V.transpose();
         } else {
             // Adjust the sign of the last column of U or V
             U.col(1) *= -1;
             R_i = U * V.transpose();
-        }
+        }*/
     
         // Store R_i in the vector
         Rot.push_back(R_i);
