@@ -121,10 +121,42 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         Eigen::JacobiSVD<Eigen::Matrix2d> svd(J_i, Eigen::ComputeFullU | Eigen::ComputeFullV);
         Eigen::Matrix2d U = svd.matrixU();
         Eigen::Matrix2d V = svd.matrixV();
-
+        /*Eigen::Matrix2d R_i;
+        if ((U * V.transpose()).determinant() > 0) {
         // Construct the closest rotation matrix R_i
-        Eigen::Matrix2d R_i = U * V.transpose();
+            R_i = U * V.transpose();
+        } else {
+            Eigen::Vector2d singu = svd.singularValues();
+                double s1 = singu(0);
+                double s2 = singu(1);
+                double singu_min = std::min(s1, s2);
+                Eigen::Matrix2d singu_Mat = Eigen::Matrix2d::Identity();
+                if (singu_min == s1) {
+                    singu_Mat(0, 0) = -s1;
+                }
+                else if (singu_min == s2) {
+                    singu_Mat(1, 1) = -s2;
+                }
+                else {
+                    singu_Mat(0, 0) = -s1;
+                    singu_Mat(1, 1) = -s2;
+                }
+            // V.col(1) *= -1;
+            R_i = U*singu_Mat*V.transpose();
+        }*/
 
+        Eigen::Matrix2d R_i;
+
+        if ((U * V.transpose()).determinant() > 0) {
+            // Construct the closest rotation matrix R_i
+            R_i = U * V.transpose();
+        } else {
+            // Adjust the sign of the last column of U or V
+            U.col(1) *= -1;
+            // Now construct the rotation matrix R_i
+            R_i = U * V.transpose();
+        }
+    
         // Store R_i in the vector
         Rot.push_back(R_i);
 
@@ -934,7 +966,29 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     mOri.connect();
     mTut.connect();
 
-    int fixed = 0;
+
+    Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
+    Eigen::VectorXd x_I_ = Eigen::VectorXd::Zero(nverts);
+    for (auto he : f.iter_halfedges()) {
+        if (!he.opposite().active()) {
+            blade.insert(he.from());
+            x_B_(int(he.from())) = fixed;
+            fixed++;
+            blade.insert(he.to());
+            x_B_(int(he.to())) = fixed;
+            fixed++;
+        }
+        else {
+            plane.insert(he.from());
+            x_I_(int(he.from())) = insider;
+            insider++;
+            plane.insert(he.to());
+            x_I_(int(he.to())) = insider;
+            insider++;
+        }
+    }
+
+    /*int fixed = 0;
     // std::set<int> blade;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     for (int i = 0; i < mTut.nverts(); i++) {
@@ -956,7 +1010,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
             x_I_(i) = insider;
             insider++;
         }
-    }
+    }*/
 
     Eigen::SparseMatrix<double> A_II(nverts - fixed, nverts - fixed);
     Eigen::SparseMatrix<double> A_IB(nverts - fixed, fixed);
