@@ -64,6 +64,7 @@ private:
     Triangles mLocGlo;
     std::set<int> blade;
     std::set<int> bound;
+    std::vector<int> bound_sorted;
     std::unordered_map<int, double> fOriMap;
     std::unordered_map<int, double> area;
     std::unordered_map<int, Eigen::Matrix2d> Shape;

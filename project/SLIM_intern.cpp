@@ -1033,15 +1033,13 @@ void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {
     }
     double radius = sqrt(area_b / (M_PI));
 
-    int total_len = bound.size();
+    int total_len = bound_sorted.size();
     int len_i = 0;
-    for (auto v : map.iter_vertices()) {
-        if (bound.contains(v)) {
-            double frac = len_i * (2. * M_PI) / total_len;
-            v.pos()[0] = radius * cos(frac);
-            v.pos()[2] = radius * sin(frac);
-            len_i++;
-        }
+    for (auto v : bound_sorted) {
+        double frac = len_i * (2. * M_PI) / total_len;
+        map.points[v][0] = radius * cos(frac);
+        map.points[v][2] = radius * sin(frac);
+        len_i++;
     }
 }
 
@@ -1121,13 +1119,33 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     Eigen::VectorXd x_I_ = Eigen::VectorXd::Zero(nverts);
     int insider = 0;*/
-    // std::set<int> bound;
+    std::unordered_map<int, int> neighbor;
     for (auto he : mOri.iter_halfedges()) {
         if (!he.opposite().active()) {
+            neighbor[he.from()] = he.to();
+            neighbor[he.to()] = he.from();
             bound.insert(he.from());
             bound.insert(he.to());
         }
     }
+
+    std::vector<int> bound_sorted;
+    if (!bound.empty()) {
+        bound_sorted.push_back(*bound.begin());
+        while (bound_sorted.size() < bound.size()) {
+            int last = bound_sorted.back();
+            int next = neighbor[last]; // Get the neighbor of the last element
+
+            // Check if the next vertex is already in bound_sorted or not in bound
+            if (std::find(bound_sorted.begin(), bound_sorted.end(), next) == bound_sorted.end() && bound.find(next) != bound.end()) {
+                bound_sorted.push_back(next);
+            } else {
+                // This algorithm assumes each vertex has exactly two neighbors in the boundary, which might not always be true
+                break;
+            }
+        }
+    }
+
 
     int fixed = 0;
     // std::set<int> blade;
