@@ -14,9 +14,3 @@ ENDIF()
 
 # Copy asset files to build directory
 file(COPY mesh_test DESTINATION .)
-
-# Add compile options
-target_compile_options(SLIM_intern PRIVATE $<$<CXX_COMPILER_ID:GNU>:-O3 -fopenmp>
-                                           $<$<CXX_COMPILER_ID:Clang>:-O3 -fopenmp>
-                                           $<$<CXX_COMPILER_ID:AppleClang>:-O3 -fopenmp>
-                                           $<$<CXX_COMPILER_ID:Intel>:-O3 -qopenmp>)
