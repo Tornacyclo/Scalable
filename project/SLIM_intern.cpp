@@ -520,8 +520,8 @@ void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_li
 			// double sigma_geo_avg = sqrt(s1*s2);
 			// conf_e += Af(i, i) * (pow(log(s1/sigma_geo_avg),2) + pow(log(s2/sigma_geo_avg),2));
 			// conf_e += Af(i, i) * ( (pow(s1,2)+pow(s2,2))/(2*s1*s2) );
-			norm_arap_e += Af(i, i) * (pow(s1-1,2) + pow(s2-1,2));
-            mini_energy += Af(i, i) * (pow(s1-1,2) + pow(s2-1,2));
+			norm_arap_e += pow(Af(i, i), 2) * (pow(s1-1, 2) + pow(s2-1, 2));
+            mini_energy += pow(Af(i, i), 2) * (pow(s1-1, 2) + pow(s2-1, 2)); // UTILISER UNE VARIABLE
 			// amips +=  Af(i, i) * exp(exp_factor* (  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) );
 			// exp_symmd += Af(i, i) * exp(exp_factor*(pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2)));
 			// amips +=  Af(i, i) * exp(  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) ;
