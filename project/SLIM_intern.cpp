@@ -85,7 +85,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
-    if (!lineSearch) {xk_1 = Eigen::VectorXd::Zero(2 * num_triangles);}
+    if (!lineSearch) {xk_1 = Eigen::VectorXd::Zero(2 * num_vertices);}
 
     Jac.clear();
     Rot.clear();
@@ -100,7 +100,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                1, 0,
                0, 1;
         
-        Z_i *= Shape[int(f)].inverse();
+        Z_i *= Shape[int(f)].transpose().inverse();
 
         //std::cout << "Z_i: " << std::endl << Z_i << std::endl;
 
@@ -124,7 +124,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
         J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
 
-        J_i *= Shape[int(f)].inverse();
+        J_i *= Shape[int(f)].transpose().inverse();
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
@@ -281,8 +281,15 @@ void TrianglesMapping::least_squares() {
 		std::cerr << "Decomposition failed" << std::endl;
 		return;
 	}
-
+    std::cout << "3.5" << std::endl;
     // xk = solver.solve(A.transpose() * b);
+
+    std::cout << "A.transpose() dimensions: " << A.transpose().rows() << " x " << A.transpose().cols() << std::endl;
+    std::cout << "b dimensions: " << b.rows() << " x " << b.cols() << std::endl;
+    std::cout << "xk_1 dimensions: " << xk_1.rows() << " x " << xk_1.cols() << std::endl;
+
+    std::cout << "num_vertices " << num_vertices * 2 << std::endl;
+
     Eigen::MatrixXd Atb = A.transpose() * b + lambda * xk_1;
     std::cout << "3" << std::endl;
 	xk = solver.solve(Atb);
@@ -890,6 +897,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     int insider = 0;*/
     std::unordered_map<int, std::vector<int>> neighbor;
     std::unordered_set<int> bound;
+    std::set<int> bound_halfedges;
 
     for (auto he : mOri.iter_halfedges()) {
         if (!he.opposite().active()) {
@@ -897,6 +905,8 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
             neighbor[he.to()].push_back(he.from());
             bound.insert(he.from());
             bound.insert(he.to());
+
+            bound_halfedges.insert(he);
         }
     }
 
@@ -939,7 +949,67 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     
     std::cout << bound.size() << "  " << bound_sorted.size() << std::endl;
 
-    exit(EXIT_FAILURE);
+    bound_sorted.clear();
+
+    int init = *bound_halfedges.begin();
+    std::vector<int> bound_sorted2;
+    missing = 0;
+    if (!bound.empty()) {
+        Surface::Halfedge h(mOri, init);
+        int start = h.from();
+        bound_sorted.push_back(start);
+
+        while (bound_sorted.size() < bound.size()) {
+            bool found = false;
+            Surface::Halfedge h_next1 = h.next();
+            if (h_next1.active()) {
+                if (bound_halfedges.contains(h_next1)) {
+                    h = h_next1;
+                    bound_sorted.push_back(h.from());
+                    found = true;
+                    continue;
+                }
+            }
+            Surface::Halfedge h_next2 = h.next().opposite().next();
+            if (h_next2.active()) {
+                if (bound_halfedges.contains(h_next2)) {
+                    h = h_next2;
+                    bound_sorted.push_back(h.from());
+                    found = true;
+                    continue;
+                }
+            }
+            Surface::Halfedge h_next3 = h.next().opposite().next().opposite().next();
+            if (h_next3.active()) {
+                if (bound_halfedges.contains(h_next3)) {
+                    h = h_next3;
+                    bound_sorted.push_back(h.from());
+                    found = true;
+                    continue;
+                }
+            }
+
+            Surface::Halfedge h_next4 = h.next().opposite().next().opposite().next().opposite().next();
+            if (h_next4.active()) {
+                if (bound_halfedges.contains(h_next4)) {
+                    h = h_next4;
+                    bound_sorted.push_back(h.from());
+                    found = true;
+                    continue;
+                }
+            }
+
+            if (!found) {
+                missing++;
+                break;
+            }
+        }
+        std::cout << "Number of miss : " << missing << std::endl;
+    }
+
+    std::cout << bound.size() << "  " << bound_sorted.size() << std::endl;
+
+    // exit(EXIT_FAILURE);
 
     for (int v : bound_sorted) {
         std::cout << v << " " << std::endl;
