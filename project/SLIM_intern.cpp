@@ -85,7 +85,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     if (!lineSearch) {xk_1 = Eigen::VectorXd::Zero(2 * num_vertices);}
-    if (first_time) {Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);}
+    // if (first_time) {Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);}
 
     Jac.clear();
     Rot.clear();
@@ -169,7 +169,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         Rot.push_back(R_i);
 
         if (first_time) {
-                Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
+                // Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
                 // Af(ind, ind) = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
         }
         // std::cout << Af(ind, ind) << std::endl;
@@ -902,6 +902,13 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 
     reference_mesh(mOri);
 
+    int ind = 0;
+    Af = Eigen::MatrixXd::Zero(mOri.nfacets(), mOri.nfacets());
+    for (auto f : mOri.iter_facets()) {
+        Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
+        ind++;
+    }
+
     /*int fixed = 0;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
     Eigen::VectorXd x_I_ = Eigen::VectorXd::Zero(nverts);
@@ -921,7 +928,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         }
     }
 
-    std::vector<int> bound_sorted;
+    // std::vector<int> bound_sorted;
     int missing = 0;
     if (!bound.empty()) {
         std::unordered_set<int> visited;
@@ -960,7 +967,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     
     std::cout << bound.size() << "  " << bound_sorted.size() << std::endl;
 
-    bound_sorted.clear();
+    /*bound_sorted.clear();
 
     int init = *bound_halfedges.begin();
     std::vector<int> bound_sorted2;
@@ -1016,7 +1023,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
             }
         }
         std::cout << "Number of miss : " << missing << std::endl;
-    }
+    }*/
 
     std::cout << bound.size() << "  " << bound_sorted.size() << std::endl;
 
@@ -1349,16 +1356,16 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
             }
         }
 
-        FacetAttribute<double> fa(mLocGlo);
-        /*for (auto f : mLocGlo.iter_facets()) {
-            fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
-        }*/
-
-       for (auto f : mLocGlo.iter_facets()) {
-            fa[f] = norm_arap[int(f)];
-            // std::cout << "norm_arap[int(f)] : " << norm_arap[int(f)] << std::endl;
+        FacetAttribute<double> fa_a(mLocGlo);
+        for (auto f : mLocGlo.iter_facets()) {
+            fa_a[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
         }
 
+        FacetAttribute<double> fa(mLocGlo);
+        for (auto f : mLocGlo.iter_facets()) {
+                fa[f] = norm_arap[int(f)];
+                // std::cout << "norm_arap[int(f)] : " << norm_arap[int(f)] << std::endl;
+        }
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); // Calculate duration in milliseconds
         totalTime += duration; // Accumulate total time
@@ -1375,7 +1382,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         }
 
 
-        write_by_extension(output_name, mLocGlo, { {}, {{"Energy", fa.ptr}}, {{"Halfedge", he.ptr}} });
+        write_by_extension(output_name, mLocGlo, { {}, {{"Energy", fa.ptr}, {"DistortionScale", fa_a.ptr}}, {{"Halfedge", he.ptr}} });
         std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
         if (i % 20 == 0) {
             #ifdef _WIN32
