@@ -69,10 +69,12 @@ private:
     std::unordered_map<int, double> area;
     std::unordered_map<int, Eigen::Matrix2d> Shape;
     std::unordered_map<int, mat<3,2>> ref_tri;
+    bool first_time = true;
+    std::vector<double> norm_arap;
     Eigen::MatrixXd EigenMap;
     char output_name[120];
     char energy[65] = "arap";
-    int max_iterations = 30;
+    int max_iterations = 11;
 
     int num_vertices;
 	int num_triangles;

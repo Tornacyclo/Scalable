@@ -84,8 +84,8 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     num_triangles = map.nfacets();
     Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
-    Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);
     if (!lineSearch) {xk_1 = Eigen::VectorXd::Zero(2 * num_vertices);}
+    if (first_time) {Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);}
 
     Jac.clear();
     Rot.clear();
@@ -100,7 +100,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                1, 0,
                0, 1;
         
-        Z_i *= Shape[int(f)].transpose().inverse();
+        Z_i *= Shape[int(f)].inverse();
 
         //std::cout << "Z_i: " << std::endl << Z_i << std::endl;
 
@@ -124,7 +124,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
         J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
 
-        J_i *= Shape[int(f)].transpose().inverse();
+        J_i *= Shape[int(f)].inverse();
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
@@ -168,8 +168,11 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
         Rot.push_back(R_i);
 
-        Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
-        // Af(ind, ind) = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        if (first_time) {
+                Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
+                // Af(ind, ind) = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        }
+        // std::cout << Af(ind, ind) << std::endl;
 
         ind++;
     }
@@ -177,6 +180,8 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     // Assemble the sparse matrices Dx and Dy
     Dx.setFromTriplets(Dx_triplets.begin(), Dx_triplets.end());
     Dy.setFromTriplets(Dy_triplets.begin(), Dy_triplets.end());
+
+    first_time = false;
 }
 
 void TrianglesMapping::update_weights() {
@@ -326,7 +331,7 @@ void TrianglesMapping::least_squares() {
     }*/
 
 	dk = xk - xk_1;
-	std::cout << "Distance dk:" << std::endl << dk << std::endl;
+	// std::cout << "Distance dk:" << std::endl << dk << std::endl;
 }
 
 void TrianglesMapping::verify_flips(Triangles& map,
@@ -499,7 +504,9 @@ double TrianglesMapping::smallest_position_quadratic_zero(double a, double b, do
 void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_linesearch) {
 	// schaeffer_e = log_e = conf_e = amips = 0;
 	norm_arap_e = 0;
+    norm_arap.clear();
 	for (int i = 0; i < num_triangles; i++) {
+        double mini_energy = 0;
 		Eigen::JacobiSVD<Eigen::Matrix2d> svd(Jac[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
 		Eigen::Matrix2d Ui = svd.matrixU();
 		Eigen::Matrix2d Vi = svd.matrixV();
@@ -514,6 +521,7 @@ void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_li
 			// conf_e += Af(i, i) * (pow(log(s1/sigma_geo_avg),2) + pow(log(s2/sigma_geo_avg),2));
 			// conf_e += Af(i, i) * ( (pow(s1,2)+pow(s2,2))/(2*s1*s2) );
 			norm_arap_e += Af(i, i) * (pow(s1-1,2) + pow(s2-1,2));
+            mini_energy += Af(i, i) * (pow(s1-1,2) + pow(s2-1,2));
 			// amips +=  Af(i, i) * exp(exp_factor* (  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) );
 			// exp_symmd += Af(i, i) * exp(exp_factor*(pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2)));
 			// amips +=  Af(i, i) * exp(  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) ;
@@ -526,6 +534,9 @@ void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_li
 			norm_arap_e += Af(i, i) * (Jac[i]-Ui*Vi.transpose()).squaredNorm();
 			}
 		}
+        // std::cout << "mini_energy: " << Af(i, i) << std::endl;
+
+        norm_arap.push_back(mini_energy);
 	}
 }
 
@@ -793,7 +804,7 @@ void TrianglesMapping::nextStep(Triangles& map) {
 	// Update the solution xk
 	xk = xk_1 + alpha * dk;
 
-	std::cout << "The new solution is:\n" << xk << std::endl;
+	// std::cout << "The new solution is:\n" << xk << std::endl;
 	std::cout << "Step size alpha: " << alpha << std::endl;
 
 	/*for (auto v : mLocGlo.iter_vertices()) {
@@ -1339,10 +1350,14 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         }
 
         FacetAttribute<double> fa(mLocGlo);
-        for (auto f : mLocGlo.iter_facets()) {
+        /*for (auto f : mLocGlo.iter_facets()) {
             fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
-        }
+        }*/
 
+       for (auto f : mLocGlo.iter_facets()) {
+            fa[f] = norm_arap[int(f)];
+            // std::cout << "norm_arap[int(f)] : " << norm_arap[int(f)] << std::endl;
+        }
 
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); // Calculate duration in milliseconds
@@ -1360,15 +1375,15 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         }
 
 
-        write_by_extension(output_name, mLocGlo, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
+        write_by_extension(output_name, mLocGlo, { {}, {{"Energy", fa.ptr}}, {{"Halfedge", he.ptr}} });
         std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
         if (i % 20 == 0) {
             #ifdef _WIN32
             // Open the generated mesh with Graphite
-            int result = system((getGraphitePath() + " " + output_name).c_str());
+            ////////////int result = system((getGraphitePath() + " " + output_name).c_str());
             #endif
             #ifdef linux
-            system((std::string("graphite ") + output_name).c_str());
+            //////////////////system((std::string("graphite ") + output_name).c_str());
             #endif
         }
 	}
