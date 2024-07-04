@@ -8,6 +8,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <unordered_set>
 #include <filesystem>
 #include <stdlib.h>
 #include <string>
@@ -18,7 +19,6 @@
 #include <cmath>
 
 #include <eigen3/Eigen/Sparse>
-#include <eigen3/Eigen/IterativeLinearSolvers>
 
 #include <fstream>
 
@@ -72,14 +72,13 @@ private:
     Eigen::MatrixXd EigenMap;
     char output_name[120];
     char energy[65] = "arap";
-    int max_iterations = 30;
+    int max_iterations = 10;
 
     int num_vertices;
 	int num_triangles;
-    std::vector<Eigen::Matrix2d> Rot, Jac, Wei, Grad;
+    std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
     Eigen::MatrixXd Af; // Area factor
     Eigen::SparseMatrix<double> Dx, Dy;
-    Eigen::VectorXi dx_i, dx_j;////////////////////////
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
