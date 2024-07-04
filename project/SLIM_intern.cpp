@@ -124,7 +124,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
         J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
 
-        J_i *= Shape[int(f)];
+        J_i *= Shape[int(f)].inverse();
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
