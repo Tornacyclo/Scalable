@@ -124,7 +124,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
         J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
 
-        J_i *= Shape[int(f)].inverse();
+        J_i *= Shape[int(f)];
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
@@ -658,6 +658,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
     double alphaStep = 0.99 * alphaMax;
     alphaStep = std::min(1.0, 0.8 * alphaMax);
     double alphaTest = 0.99 * alphaMax;
+    double alphaStep2 = std::min(1.0, 0.8 * alphaMax);
 
     Eigen::VectorXd pk = xk_search + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
@@ -744,7 +745,38 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
         iter++;
     }
 
-    return alphaStep;
+
+    while (alphaHigh - alphaLow > 1e-8 && iter < max_iter) {
+        if (!(new_ener <= ener)) {
+            alphaHigh = alphaStep2;
+            alphaStep2 = (alphaLow + alphaHigh) / 2.0;
+            
+        } else {
+            alphaLow = alphaStep2;
+            alphaStep2 = (alphaLow + alphaHigh) / 2.0;
+        }
+
+        pk = xk_search + alphaStep2 * dk;
+
+        // Update pk positions
+        /*for (auto v : map.iter_vertices()) {
+            v.pos()[0] = pk(int(v));
+            v.pos()[2] = pk(int(v) + num_vertices);
+        }*/
+        updateUV(map, pk);
+        jacobian_rotation_area(map, true);
+        add_energies_jacobians(new_ener, true);
+
+        // Compute gradient of pk
+        // computeGradient(pk, grad_pk, map);
+		// computeAnalyticalGradient(pk, grad_pk, map);
+        compute_energy_gradient(grad_pk, true, map);
+
+        iter++;
+    }
+
+
+    return alphaStep2;
 }
 
 void TrianglesMapping::nextStep(Triangles& map) {
@@ -869,6 +901,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     }
 
     std::vector<int> bound_sorted;
+    int missing = 0;
     if (!bound.empty()) {
         std::unordered_set<int> visited;
         int start = *bound.begin();
@@ -889,11 +922,24 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
             }
 
             if (!found) {
-                // This case handles disconnected parts or completion
+                missing++;
                 break;
             }
         }
+        std::cout << "Number of miss : " << missing << std::endl;
     }
+
+    for (const auto& pair : neighbor) {
+        std::cout << "Key: " << pair.first << " Values: ";
+        for (const int& val : pair.second) {
+            std::cout << val << " ";
+        }
+        std::cout << std::endl;
+    }
+    
+    std::cout << bound.size() << "  " << bound_sorted.size() << std::endl;
+
+    exit(EXIT_FAILURE);
 
     for (int v : bound_sorted) {
         std::cout << v << " " << std::endl;
