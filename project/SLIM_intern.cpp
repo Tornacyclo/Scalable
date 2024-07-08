@@ -1379,6 +1379,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         output_name[first_word_length] = '\0'; // Ensure null-termination
         strcat(output_name, method);
         strcat(output_name, energy);
+        strcat(output_name, "_");
         // strcat(output_name, attribute);
         sprintf(numStr, "%d", i);
         strcat(output_name, numStr);
