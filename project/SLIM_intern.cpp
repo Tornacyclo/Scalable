@@ -846,10 +846,10 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 
     if (name == nullptr) {
         #ifdef _WIN32
-        name = "mesh_test/hemisphere.obj";
+            name = "mesh_test/hemisphere.obj";
         #endif
         #ifdef linux
-        name = "project/mesh_test/hemisphere.obj";
+            name = "project/mesh_test/hemisphere.obj";
         #endif
     }
 
@@ -879,8 +879,17 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     strcat(output_name, attribute);
     strcat(output_name, ext2);
 
+    char times_txt[100];
+    strcat(times_txt, stem);
+    strcat(times_txt, ".txt");
+    std::ofstream timeFile(times_txt); // Open a file for writing times
+    auto start = std::chrono::high_resolution_clock::now();
+    totalStart = std::chrono::high_resolution_clock::now(); // Start timing for total duration
+    totalTime = 0; // Initialize total time accumulator
+
     read_by_extension(name, mTut);
     read_by_extension(name, mOri);
+
     double maxH = mTut.points[0][1];
     double minH = mTut.points[0][1];
     int nverts = mTut.nverts();
@@ -891,7 +900,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
             maxH = mTut.points[i][1];
         }
     }
-    double cuttingSurface = 0.;
+    double seaLevel = 0.;
     double margin = 1.0 / nverts * 100;
     double dcuttingSurface = (maxH - minH) * margin;
 
@@ -1079,7 +1088,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         A_II_A_BB.insert(i, i) = 1;
     }
 
-    Eigen::MatrixXd lhsF = Eigen::MatrixXd::Zero(nverts, 3);
+    Eigen::MatrixXd lhsF = Eigen::MatrixXd::Zero(nverts, 2);
 
     bound_vertices_circle_normalized(mTut);
 
@@ -1244,7 +1253,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         return;
     }
 
-    std::cout << x_I_full << std::endl;
+    // std::cout << x_I_full << std::endl;
     EigenMap = x_I_full;
 
     for (int plan : plane) {
@@ -1253,11 +1262,11 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 	    // mTut.points[plan][2] = x_I(re, 1);
 
         mTut.points[plan][0] = x_I_full(re + fixed, 0);
-        mTut.points[plan][1] = cuttingSurface;
+        mTut.points[plan][1] = seaLevel;
         mTut.points[plan][2] = x_I_full(re + fixed, 1);
     }
     for (int blad : blade) {
-        mTut.points[blad][1] = cuttingSurface;
+        mTut.points[blad][1] = seaLevel;
     }
 
     // for (int plan : plane) {
@@ -1287,30 +1296,73 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         }
     }
 
+    Surface::Facet f(mTut, 0);
+    double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
+    double maxArea = minArea;
     FacetAttribute<double> fa(mTut);
     for (auto f : mTut.iter_facets()) {
         fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
+        if (fa[f] < minArea) {
+            minArea = fa[f];
+        } else if (fa[f] > maxArea) {
+            maxArea = fa[f];
+        }
     }
 
-    write_by_extension(output_name, mTut, { {}, {{"DistortionScale", fa.ptr}}, {{"Halfedge", he.ptr}} });
+    double minEnergy = 0.0;
+    double maxEnergy = 0.0;
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    totalTime += duration; // Accumulate total time
+    if (timeFile.is_open()) {
+        timeFile << "Initialisation" << " : " << duration << " ms — "; // Write iteration number and duration to file
+    }
 
-    #ifdef _WIN32
-    // Open the generated mesh with Graphite
-    int result = system((getGraphitePath() + " " + output_name).c_str());
-    #endif
-    #ifdef linux
-    system((std::string("graphite ") + output_name).c_str());
-    #endif
+    auto totalEnd = std::chrono::high_resolution_clock::now();
+    auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
+    if (timeFile.is_open()) {
+        timeFile << "Temps total  : " << totalDuration << " ms|"; // Log total time
+        timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "\n"; // Log min/max area and distortion
+    }
+
+    if (timeFile.is_open()) {
+        timeFile.close();
+    }
+
+    write_by_extension(output_name, mTut, { {}, {{"AreaRatio", fa.ptr}}, {{"Halfedge", he.ptr}} });
+
+    // #ifdef _WIN32
+    //     // Open the generated mesh with Graphite
+    //     int result = system((getGraphitePath() + " " + output_name).c_str());
+    // #endif
+    // #ifdef linux
+    //     system((std::string("graphite ") + output_name).c_str());
+    // #endif
 }
 
 void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     read_by_extension(map, mLocGlo);
     mLocGlo.connect();
 
-    std::ofstream timeFile("iteration_times.txt"); // Open a file for writing times
-    auto totalStart = std::chrono::high_resolution_clock::now(); // Start timing for total duration
-    long long totalTime = 0; // Initialize total time accumulator
+    std::filesystem::path filepath = map;
+    std::string filepath_str_ext = filepath.extension().string();
+    std::string filepath_str_stem = filepath.stem().string();
+    const char* ext = filepath_str_ext.c_str();
+    const char* stem = filepath_str_stem.c_str();
+    const char* first_space = strchr(stem, '_'); // Find the first space in stem
+    size_t first_word_length = first_space ? (size_t)(first_space - stem) : strlen(stem); // Calculate length of the first word
+    
+    char times_txt[100];
+    strncpy(times_txt, stem, first_word_length);
+    times_txt[first_word_length] = '\0';
+    strcat(times_txt, ".txt");
+    std::ofstream timeFile(times_txt, std::ios::app); // append mode
 
+    char ext2[12] = ".geogram";
+    char method[20] = "_local_global_";
+    char attribute[20] = "_distortion_";
+    char numStr[20];
+    auto start = std::chrono::high_resolution_clock::now();
 	for (int i = 0; i < max_iterations; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         jacobian_rotation_area(mLocGlo, false);
@@ -1321,21 +1373,8 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         std::cout << "least_squares();" << std::endl;
         nextStep(mLocGlo);
         std::cout << "nextStep(mLocGlo);" << std::endl;
-
-        std::filesystem::path filepath = map;
-        std::string filepath_str_ext = filepath.extension().string();
-        std::string filepath_str_stem = filepath.stem().string();
-        const char* ext = filepath_str_ext.c_str();
-        const char* stem = filepath_str_stem.c_str();
-
-        char ext2[12] = ".geogram";
-        char method[20] = "_local_global_";
-        char attribute[20] = "_distortion_";
-        char numStr[20];
         
         output_name[0] = '\0'; // Clear output_name
-        const char* first_space = strchr(stem, '_'); // Find the first space in stem
-        size_t first_word_length = first_space ? (size_t)(first_space - stem) : strlen(stem); // Calculate length of the first word
         strncpy(output_name, stem, first_word_length);
         output_name[first_word_length] = '\0'; // Ensure null-termination
         strcat(output_name, method);
@@ -1356,43 +1395,54 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
             }
         }
 
+        Surface::Facet f(mLocGlo, 0);
+        double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
+        double maxArea = minArea;
         FacetAttribute<double> fa_a(mLocGlo);
         for (auto f : mLocGlo.iter_facets()) {
             fa_a[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
+            if (fa_a[f] < minArea) {
+                minArea = fa_a[f];
+            } else if (fa_a[f] > maxArea) {
+                maxArea = fa_a[f];
+            }
         }
 
+        double minEnergy = norm_arap[0];
+        double maxEnergy = norm_arap[0];
         FacetAttribute<double> fa(mLocGlo);
         for (auto f : mLocGlo.iter_facets()) {
                 fa[f] = norm_arap[int(f)];
+                if (fa[f] < minEnergy) {
+                    minEnergy = fa[f];
+                } else if (fa[f] > maxEnergy) {
+                    maxEnergy = fa[f];
+                }
                 // std::cout << "norm_arap[int(f)] : " << norm_arap[int(f)] << std::endl;
         }
         auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); // Calculate duration in milliseconds
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         totalTime += duration; // Accumulate total time
-
         if (timeFile.is_open()) {
-            timeFile << "Iteration " << i << ": " << duration << " ms — "; // Write iteration number and duration to file
+            timeFile << "Itération " << i << " : " << duration << " ms — "; // Write iteration number and duration to file
         }
 
         auto totalEnd = std::chrono::high_resolution_clock::now();
-        auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count(); // Calculate total duration in milliseconds
-
+        auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
         if (timeFile.is_open()) {
-            timeFile << "Total time: " << totalDuration << " ms\n"; // Log total time
+            timeFile << "Temps total  : " << totalDuration << " ms|"; // Log total time
+            timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "\n"; // Log min/max area and distortion
         }
 
 
-        write_by_extension(output_name, mLocGlo, { {}, {{"Energy", fa.ptr}, {"DistortionScale", fa_a.ptr}}, {{"Halfedge", he.ptr}} });
+        write_by_extension(output_name, mLocGlo, { {}, {{"Energy", fa.ptr}, {"AreaRatio", fa_a.ptr}}, {{"Halfedge", he.ptr}} });
         std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
-        if (i % 20 == 0) {
-            #ifdef _WIN32
-            // Open the generated mesh with Graphite
-            ////////////int result = system((getGraphitePath() + " " + output_name).c_str());
-            #endif
-            #ifdef linux
-            //////////////////system((std::string("graphite ") + output_name).c_str());
-            #endif
-        }
+        // #ifdef _WIN32
+        //     int result = system((getGraphitePath() + " " + output_name).c_str());
+        // #endif
+        // #ifdef linux
+        //     system((std::string("graphite ") + output_name).c_str());
+        // #endif
 	}
 
     if (timeFile.is_open()) {

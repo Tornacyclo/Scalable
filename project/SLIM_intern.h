@@ -12,14 +12,11 @@
 #include <filesystem>
 #include <stdlib.h>
 #include <string>
-
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <cmath>
-
 #include <eigen3/Eigen/Sparse>
-
 #include <fstream>
 
 
@@ -73,14 +70,16 @@ private:
     std::vector<double> norm_arap;
     Eigen::MatrixXd EigenMap;
     char output_name[120];
-    char energy[65] = "arap";
-    int max_iterations = 11;
-
     int num_vertices;
 	int num_triangles;
     std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
-    Eigen::MatrixXd Af; // Area factor
+    Eigen::MatrixXd Af;
     Eigen::SparseMatrix<double> Dx, Dy;
+    char energy[65] = "arap";
+    int max_iterations = 11;
+    
+    std::chrono::high_resolution_clock::time_point totalStart;
+    long long totalTime;
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
@@ -111,4 +110,4 @@ private:
 };
 
 
-#endif
+#endif // #ifndef SLIM_INTERN_H
