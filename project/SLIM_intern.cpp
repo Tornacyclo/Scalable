@@ -867,7 +867,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     char method[20] = "_barycentre";
     char weight1[20] = "_uniform";
     char weight2[20] = "_cotan";
-    char attribute[20] = "_distortion";
+    // char attribute[20] = "_distortion";
 
     strcpy(output_name, stem);
     strcat(output_name, method);
@@ -876,7 +876,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     } else if (weights == 2) {
         strcat(output_name, weight2);
     }
-    strcat(output_name, attribute);
+    // strcat(output_name, attribute);
     strcat(output_name, ext2);
 
     char times_txt[100];
@@ -1315,13 +1315,13 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     totalTime += duration; // Accumulate total time
     if (timeFile.is_open()) {
-        timeFile << "Initialisation" << " : " << duration << " ms — "; // Write iteration number and duration to file
+        timeFile << "-1" << "|" << duration << "|"; // Write iteration number and duration to file
     }
 
     auto totalEnd = std::chrono::high_resolution_clock::now();
     auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
     if (timeFile.is_open()) {
-        timeFile << "Temps total  : " << totalDuration << " ms|"; // Log total time
+        timeFile << totalDuration << "|"; // Log total time
         timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "\n"; // Log min/max area and distortion
     }
 
@@ -1360,7 +1360,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
     char ext2[12] = ".geogram";
     char method[20] = "_local_global_";
-    char attribute[20] = "_distortion_";
+    // char attribute[20] = "_distortion_";
     char numStr[20];
     auto start = std::chrono::high_resolution_clock::now();
 	for (int i = 0; i < max_iterations; ++i) {
@@ -1379,7 +1379,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         output_name[first_word_length] = '\0'; // Ensure null-termination
         strcat(output_name, method);
         strcat(output_name, energy);
-        strcat(output_name, attribute);
+        // strcat(output_name, attribute);
         sprintf(numStr, "%d", i);
         strcat(output_name, numStr);
         strcat(output_name, ext2);
@@ -1424,13 +1424,13 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         totalTime += duration; // Accumulate total time
         if (timeFile.is_open()) {
-            timeFile << "Itération " << i << " : " << duration << " ms — "; // Write iteration number and duration to file
+            timeFile << i << "|" << duration << "|"; // Write iteration number and duration to file
         }
 
         auto totalEnd = std::chrono::high_resolution_clock::now();
         auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
         if (timeFile.is_open()) {
-            timeFile << "Temps total  : " << totalDuration << " ms|"; // Log total time
+            timeFile << totalDuration << "|"; // Log total time
             timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "\n"; // Log min/max area and distortion
         }
 
