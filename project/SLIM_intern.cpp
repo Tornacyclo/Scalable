@@ -1327,7 +1327,8 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
     if (timeFile.is_open()) {
         timeFile << totalDuration << "|"; // Log total time
-        timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "\n"; // Log min/max area and distortion
+        timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
+        timeFile << mTut.nverts() << "|" << mTut.nfacets() << "|" << mTut.ncorners() << "\n";
     }
 
     if (timeFile.is_open()) {
@@ -1439,7 +1440,8 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
         if (timeFile.is_open()) {
             timeFile << totalDuration << "|"; // Log total time
-            timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "\n"; // Log min/max area and distortion
+            timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
+            timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "\n";
         }
 
 
