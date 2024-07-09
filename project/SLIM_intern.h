@@ -19,6 +19,11 @@
 #include <eigen3/Eigen/Sparse>
 #include <fstream>
 
+#include "igl/grad.h"
+#include "igl/local_basis.h"
+#include "igl/read_triangle_mesh.h"
+#include "igl/polar_svd.h"
+
 
 
 #ifdef linux
@@ -64,18 +69,24 @@ private:
     std::vector<int> bound_sorted;
     std::unordered_map<int, double> fOriMap;
     std::unordered_map<int, double> area;
-    std::unordered_map<int, Eigen::Matrix2d> Shape;
+    std::unordered_map<int, Eigen::Matrix2d> Shape_1;
     std::unordered_map<int, mat<3,2>> ref_tri;
     bool first_time = true;
     std::vector<double> norm_arap;
     Eigen::MatrixXd EigenMap;
-    char output_name[120];
+    char output_name_geo[120];
+    char output_name_obj[120];
     int num_vertices;
 	int num_triangles;
+    Eigen::MatrixXd V; // card(V) by 3, list of mesh vertex positions
+    Eigen::MatrixXi F; // card(F) by 3/3, list of mesh faces (triangles/tetrahedra)
+    Eigen::MatrixXd V_1;
+    Eigen::MatrixXi F_1;
+    Eigen::MatrixXd Ri, Ji;
     std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
     Eigen::MatrixXd Af;
     Eigen::SparseMatrix<double> Dx, Dy;
-    char energy[65] = "arap";
+    char energy[65] = "ARAP";
     int max_iterations = 11;
     
     std::chrono::high_resolution_clock::time_point totalStart;
@@ -96,7 +107,7 @@ private:
 				std::vector<int>& ind_flip);
     int flipsCount(Triangles& map);
     void updateUV(Triangles& map, const Eigen::VectorXd& xk);
-    double minimum_step_singularities(Triangles& map, Eigen::VectorXd& x, Eigen::VectorXd& d);
+    double minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& destination);
     double smallest_position_quadratic_zero(double a, double b, double c);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
@@ -104,7 +115,7 @@ private:
     void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
     void computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
-    double lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd& dk,
+    double lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& xk_destination, Eigen::VectorXd& dk,
                       Triangles& map);
     void nextStep(Triangles& map);
 };

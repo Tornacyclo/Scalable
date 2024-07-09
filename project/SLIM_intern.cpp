@@ -16,7 +16,7 @@ Eigen::MatrixXd TrianglesMapping::getEigenMap() const {
 }
 
 const char* TrianglesMapping::getOutput() const {
-    return output_name;
+    return output_name_geo;
 }
 
 double TrianglesMapping::calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2) {
@@ -67,7 +67,7 @@ void TrianglesMapping::reference_mesh(Triangles& map) {
             Eigen::Matrix2d S;
             S << B.x - A.x, C.x - A.x,
                  B.y - A.y, C.y - A.y;
-            Shape[int(f)] = S;
+            Shape_1[int(f)] = S.inverse();
     }
 }
 
@@ -79,11 +79,23 @@ std::pair<Eigen::Vector3d, Eigen::Vector3d> TrianglesMapping::compute_gradients(
 		return std::make_pair(dudN, dvdN);
 }
 
+void compute_surface_gradient_matrix(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const Eigen::MatrixXd &F1,
+                                    const Eigen::MatrixXd &F2, Eigen::SparseMatrix<double> &D1, Eigen::SparseMatrix<double> &D2) {
+      Eigen::SparseMatrix<double> G;
+      igl::grad(V, F, G);
+      Eigen::SparseMatrix<double> Dx = G.block(0, 0, F.rows(), V.rows());
+      Eigen::SparseMatrix<double> Dy = G.block(F.rows(), 0, F.rows(), V.rows());
+      Eigen::SparseMatrix<double> Dz = G.block(2 * F.rows(), 0, F.rows(), V.rows());
+
+      D1 = F1.col(0).asDiagonal() * Dx + F1.col(1).asDiagonal() * Dy + F1.col(2).asDiagonal() * Dz;
+      D2 = F2.col(0).asDiagonal() * Dx + F2.col(1).asDiagonal() * Dy + F2.col(2).asDiagonal() * Dz;
+}
+
 void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     num_vertices = map.nverts();
     num_triangles = map.nfacets();
-    Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
-    Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
+    /*Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
+    Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);*/
     if (!lineSearch) {xk_1 = Eigen::VectorXd::Zero(2 * num_vertices);}
     // if (first_time) {Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);}
 
@@ -100,9 +112,10 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                1, 0,
                0, 1;
         
-        Z_i *= Shape[int(f)].inverse();
+        Z_i *= Shape_1[int(f)];
 
-        //std::cout << "Z_i: " << std::endl << Z_i << std::endl;
+        // std::cout << "Z_i: " << std::endl << Z_i << std::endl;
+        // std::cout << "Z_i_ref: " << std::endl << ref_tri[int(f)] << std::endl;
 
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(0)), Z_i(0, 0) + Z_i(0, 1)));
         Dx_triplets.push_back(Eigen::Triplet<double>(ind, int(f.vertex(1)), Z_i(1, 0) + Z_i(1, 1)));
@@ -124,7 +137,8 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         J_i(0, 1) = f.vertex(2).pos()[0] - f.vertex(0).pos()[0];
         J_i(1, 1) = f.vertex(2).pos()[2] - f.vertex(0).pos()[2];
 
-        J_i *= Shape[int(f)].inverse();
+        J_i *= Shape_1[int(f)];
+
         // std::cout << "J_i: " << std::endl << J_i << std::endl;
         Jac.push_back(J_i);
         // Compute SVD of J_i
@@ -177,16 +191,56 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         ind++;
     }
 
+    /*Jac.clear();
+    Rot.clear();*/
+
+    Eigen::SparseMatrix<double> Dx, Dy;
+    std::cout << "The output mesh has been written to " << output_name_obj << std::endl;
+    Eigen::MatrixXd F1, F2, F3;
+    igl::local_basis(V, F, F1, F2, F3);
+    compute_surface_gradient_matrix(V, F, F1, F2, Dx, Dy);
+    std::cout << "The output mesh has been written to " << Dx << std::endl;
+    // Ji=[D1*u,D2*u,D1*v,D2*v];
+    Ji = Eigen::MatrixXd::Zero(num_triangles, 4);
+    Ji.col(0) = Dx * V_1.col(0);
+    Ji.col(1) = Dy * V_1.col(0);
+    Ji.col(2) = Dx * V_1.col(1);
+    Ji.col(3) = Dy * V_1.col(1);
+
+    /*for (int i = 0; i < Ji.rows(); ++i) {
+        typedef Eigen::Matrix<double, 2, 2> Mat2;
+        typedef Eigen::Matrix<double, 2, 1> Vec2;
+        Mat2 ji, ri, ti, ui, vi;
+        Vec2 sing;
+        Vec2 closest_sing_vec;
+        Mat2 mat_W;
+        Vec2 m_sing_new;
+        double s1, s2;
+
+        ji(0, 0) = Ji(i, 0);
+        ji(0, 1) = Ji(i, 1);
+        ji(1, 0) = Ji(i, 2);
+        ji(1, 1) = Ji(i, 3);
+
+        igl::polar_svd(ji, ri, ti, ui, sing, vi);
+
+        s1 = sing(0);
+        s2 = sing(1);
+
+        Jac.push_back(ji);
+        Rot.push_back(ri);
+    }*/
+    std::cout << "The output mesh has been written to " << output_name_obj << std::endl;
     // Assemble the sparse matrices Dx and Dy
-    Dx.setFromTriplets(Dx_triplets.begin(), Dx_triplets.end());
-    Dy.setFromTriplets(Dy_triplets.begin(), Dy_triplets.end());
+    /*Dx.setFromTriplets(Dx_triplets.begin(), Dx_triplets.end());
+    Dy.setFromTriplets(Dy_triplets.begin(), Dy_triplets.end());*/
 
     first_time = false;
 }
 
 void TrianglesMapping::update_weights() {
 	Wei.clear();
-	if (strcmp(energy, "arap") == 0) {
+	if (strcmp(energy, "ARAP") == 0) {
 		for (size_t i = 0; i < Rot.size(); ++i) {
 			Wei.push_back(Eigen::Matrix2d::Identity());
 		}
@@ -215,7 +269,7 @@ void TrianglesMapping::least_squares() {
 	Eigen::VectorXd R21 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R22 = Eigen::VectorXd::Zero(num_triangles);
 
-    
+    std::cout << "Yo long time no see" << std::endl;
 
 	for (int i = 0; i < num_triangles; ++i) {
 		W11_diag(i) = Wei[i](0, 0);
@@ -395,7 +449,7 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	return alphaMax;
 }
 
- double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& x, Eigen::VectorXd& d) {
+ double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& destination) {
     double maximum_step = INFINITY;
     // updateUV(map, x);
     for (auto f : map.iter_facets()) {
@@ -406,19 +460,19 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
         #define U22 f.vertex(1).pos()[2]
         #define U31 f.vertex(2).pos()[0]
         #define U32 f.vertex(2).pos()[2]*/
-        #define U11 x(int(f.vertex(0)))
-        #define U12 x(int(f.vertex(0)) + num_vertices)
-        #define U21 x(int(f.vertex(1)))
-        #define U22 x(int(f.vertex(1)) + num_vertices)
-        #define U31 x(int(f.vertex(2)))
-        #define U32 x(int(f.vertex(2)) + num_vertices)
+        #define U11 current(int(f.vertex(0)))
+        #define U12 current(int(f.vertex(0)) + num_vertices)
+        #define U21 current(int(f.vertex(1)))
+        #define U22 current(int(f.vertex(1)) + num_vertices)
+        #define U31 current(int(f.vertex(2)))
+        #define U32 current(int(f.vertex(2)) + num_vertices)
 
-        #define V11 d(int(f.vertex(0)))
-        #define V12 d(int(f.vertex(0)) + num_vertices)
-        #define V21 d(int(f.vertex(1)))
-        #define V22 d(int(f.vertex(1)) + num_vertices)
-        #define V31 d(int(f.vertex(2)))
-        #define V32 d(int(f.vertex(2)) + num_vertices)
+        #define V11 destination(int(f.vertex(0)))
+        #define V12 destination(int(f.vertex(0)) + num_vertices)
+        #define V21 destination(int(f.vertex(1)))
+        #define V22 destination(int(f.vertex(1)) + num_vertices)
+        #define V31 destination(int(f.vertex(2)))
+        #define V32 destination(int(f.vertex(2)) + num_vertices)
         
         
         double a = V11*V22 - V12*V21 - V11*V32 + V12*V31 + V21*V32 - V22*V31;
@@ -664,32 +718,32 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
           m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));*/
 }
 
-double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd& dk,
+double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& xk_destination, Eigen::VectorXd& dk,
                       Triangles& map) {
     // Line search using Wolfe conditions
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
-    double alphaMax = minimum_step_singularities(map, xk_search, dk);
-    // double alphaMax = determineAlphaMax(xk_search, dk, map);
+    double alphaMax = minimum_step_singularities(map, xk_current, xk_destination);
+    // double alphaMax = determineAlphaMax(xk_current, xk_destination, map);
     
     double alphaStep = 0.99 * alphaMax;
     alphaStep = std::min(1.0, 0.8 * alphaMax);
     double alphaTest = 0.99 * alphaMax;
     double alphaStep2 = std::min(1.0, 0.8 * alphaMax);
 
-    Eigen::VectorXd pk = xk_search + alphaStep * dk;
+    Eigen::VectorXd pk = xk_current + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
 
-    updateUV(map, xk_search);
+    updateUV(map, xk_current);
     jacobian_rotation_area(map, true);
     double ener, new_ener;
     add_energies_jacobians(ener, true);
     
-    // Compute gradient of xk_search
-    Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk_search.size());
-    // computeGradient(xk_search, grad_xk, map);
-	// computeAnalyticalGradient(xk_search, grad_xk, map);
+    // Compute gradient of xk_current
+    Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk_current.size());
+    // computeGradient(xk_current, grad_xk, map);
+	// computeAnalyticalGradient(xk_current, grad_xk, map);
     compute_energy_gradient(grad_xk, true, map);
     
     /*for (auto v : map.iter_vertices()) {
@@ -700,11 +754,11 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
 
     // Wolfe conditions
     auto wolfe1 = [&]() {
-        return new_ener <= ener + c1 * alphaStep * grad_xk.dot(dk);
+        return new_ener > ener + c1 * alphaStep * grad_xk.dot(dk);
     };
 
     auto wolfe2 = [&]() {
-        return grad_pk.dot(dk) >= c2 * grad_xk.dot(dk);
+        return abs(grad_pk.dot(dk)) > c2 * abs(grad_xk.dot(dk));
     };
 
     // // Initial check
@@ -714,16 +768,16 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
 
     // Bisection line search with max_iter limit
     double alphaLow = 0.0;
-    double alphaHigh = alphaMax;
+    double alphaHigh = alphaStep;
     int max_iter = 40;
     int iter = 0;
 
-    while (alphaHigh - alphaLow > 1e-8 && iter < max_iter) {
-        if (!wolfe1()) {
+    /*while (iter < max_iter) {
+        if (wolfe1()) {
             alphaHigh = alphaStep;
             alphaStep = (alphaLow + alphaHigh) / 2.0;
             
-        } else if (!wolfe2()) {
+        } else if (wolfe2()) {
             updateUV(map, pk);
             jacobian_rotation_area(map, true);
             add_energies_jacobians(new_ener, true);
@@ -744,13 +798,13 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
             break;
         }
 
-        pk = xk_search + alphaStep * dk;
+        pk = xk_current + alphaStep * dk;
 
         // Update pk positions
         /*for (auto v : map.iter_vertices()) {
             v.pos()[0] = pk(int(v));
             v.pos()[2] = pk(int(v) + num_vertices);
-        }*/
+        }///////
         updateUV(map, pk);
         jacobian_rotation_area(map, true);
         add_energies_jacobians(new_ener, true);
@@ -761,11 +815,11 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
         compute_energy_gradient(grad_pk, true, map);
 
         iter++;
-    }
+    }*/
 
 
-    while (alphaHigh - alphaLow > 1e-8 && iter < max_iter) {
-        if (!(new_ener <= ener)) {
+    while (iter < max_iter) {
+        if (new_ener > ener) {
             alphaHigh = alphaStep2;
             alphaStep2 = (alphaLow + alphaHigh) / 2.0;
             
@@ -774,7 +828,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
             alphaStep2 = (alphaLow + alphaHigh) / 2.0;
         }
 
-        pk = xk_search + alphaStep2 * dk;
+        pk = xk_current + alphaStep2 * dk;
 
         // Update pk positions
         /*for (auto v : map.iter_vertices()) {
@@ -799,7 +853,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_search, Eigen::VectorXd&
 
 void TrianglesMapping::nextStep(Triangles& map) {
 	// Perform line search to find step size alpha
-	double alpha = lineSearch(xk_1, dk, map);
+	double alpha = lineSearch(xk_1, xk, dk, map);
 
 	// Update the solution xk
 	xk = xk_1 + alpha * dk;
@@ -870,15 +924,17 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     char weight2[20] = "_cotan";
     // char attribute[20] = "_distortion";
 
-    strcpy(output_name, stem);
-    strcat(output_name, method);
+    strcpy(output_name_geo, stem);
+    strcat(output_name_geo, method);
     if (weights == 1) {
-        strcat(output_name, weight1);
+        strcat(output_name_geo, weight1);
     } else if (weights == 2) {
-        strcat(output_name, weight2);
+        strcat(output_name_geo, weight2);
     }
+    strcpy(output_name_obj, output_name_geo);
     // strcat(output_name, attribute);
-    strcat(output_name, ext2);
+    strcat(output_name_geo, ext2);
+    strcat(output_name_obj, ".obj");
 
     char times_txt[100];
     strcat(times_txt, stem);
@@ -916,9 +972,11 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     Af = Eigen::MatrixXd::Zero(mOri.nfacets(), mOri.nfacets());
     for (auto f : mOri.iter_facets()) {
         // Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
-        Af(ind, ind) = std::sqrt(mOri.util.unsigned_area(f));
+        Af(ind, ind) = std::sqrt(area[int(f)]);
         ind++;
     }
+
+    igl::read_triangle_mesh(name, V, F);
 
     /*int fixed = 0;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
@@ -1335,14 +1393,16 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         timeFile.close();
     }
 
-    write_by_extension(output_name, mTut, { {}, {{"AreaRatio", fa.ptr}}, {{"Halfedge", he.ptr}} });
+    write_by_extension(output_name_geo, mTut, { {}, {{"AreaRatio", fa.ptr}}, {{"Halfedge", he.ptr}} });
+    write_by_extension(output_name_obj, mTut);
+    igl::read_triangle_mesh(output_name_obj, V_1, F_1);
 
     // #ifdef _WIN32
     //     // Open the generated mesh with Graphite
-    //     int result = system((getGraphitePath() + " " + output_name).c_str());
+    //     int result = system((getGraphitePath() + " " + output_name_geo).c_str());
     // #endif
     // #ifdef linux
-    //     system((std::string("graphite ") + output_name).c_str());
+    //     system((std::string("graphite ") + output_name_geo).c_str());
     // #endif
 }
 
@@ -1380,16 +1440,18 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         nextStep(mLocGlo);
         std::cout << "nextStep(mLocGlo);" << std::endl;
         
-        output_name[0] = '\0'; // Clear output_name
-        strncpy(output_name, stem, first_word_length);
-        output_name[first_word_length] = '\0'; // Ensure null-termination
-        strcat(output_name, method);
-        strcat(output_name, energy);
-        strcat(output_name, "_");
+        output_name_geo[0] = '\0'; // Clear output_name
+        strncpy(output_name_geo, stem, first_word_length);
+        output_name_geo[first_word_length] = '\0'; // Ensure null-termination
+        strcat(output_name_geo, method);
+        strcat(output_name_geo, energy);
+        strcat(output_name_geo, "_");
         // strcat(output_name, attribute);
         sprintf(numStr, "%d", i);
-        strcat(output_name, numStr);
-        strcat(output_name, ext2);
+        strcat(output_name_geo, numStr);
+        strcpy(output_name_obj, output_name_geo);
+        strcat(output_name_geo, ext2);
+        strcat(output_name_obj, ".obj");
 
         // reference_mesh(mLocGlo);
 
@@ -1445,13 +1507,15 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         }
 
 
-        write_by_extension(output_name, mLocGlo, { {}, {{"Energy", fa.ptr}, {"AreaRatio", fa_a.ptr}}, {{"Halfedge", he.ptr}} });
-        std::cout << "write_by_extension(output_name, mLocGlo);" << std::endl;
+        write_by_extension(output_name_geo, mLocGlo, { {}, {{"Energy", fa.ptr}, {"AreaRatio", fa_a.ptr}}, {{"Halfedge", he.ptr}} });
+        write_by_extension(output_name_obj, mLocGlo);
+        igl::read_triangle_mesh(output_name_obj, V_1, F_1);
+        std::cout << "write_by_extension(output_name_geo, mLocGlo);" << std::endl;
         // #ifdef _WIN32
-        //     int result = system((getGraphitePath() + " " + output_name).c_str());
+        //     int result = system((getGraphitePath() + " " + output_name_geo).c_str());
         // #endif
         // #ifdef linux
-        //     system((std::string("graphite ") + output_name).c_str());
+        //     system((std::string("graphite ") + output_name_geo).c_str());
         // #endif
 	}
 
