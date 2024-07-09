@@ -1301,12 +1301,12 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
 
     Surface::Facet f(mTut, 0);
     // double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
-    double minArea = mTut.util.unsigned_area(f);
+    double minArea = mTut.util.unsigned_area(f) / fOriMap[0];
     double maxArea = minArea;
     FacetAttribute<double> fa(mTut);
     for (auto f : mTut.iter_facets()) {
         // fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
-        fa[f] = mTut.util.unsigned_area(f);
+        fa[f] = mTut.util.unsigned_area(f) / fa2[f];
         if (fa[f] < minArea) {
             minArea = fa[f];
         } else if (fa[f] > maxArea) {
@@ -1391,7 +1391,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         strcat(output_name, numStr);
         strcat(output_name, ext2);
 
-        reference_mesh(mLocGlo);
+        // reference_mesh(mLocGlo);
 
         CornerAttribute<double> he(mLocGlo);
         for (auto f : mLocGlo.iter_halfedges()) {
@@ -1404,12 +1404,12 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
         Surface::Facet f(mLocGlo, 0);
         // double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
-        double minArea = mLocGlo.util.unsigned_area(f);
+        double minArea = mLocGlo.util.unsigned_area(f) / fOriMap[0];
         double maxArea = minArea;
         FacetAttribute<double> fa_a(mLocGlo);
         for (auto f : mLocGlo.iter_facets()) {
             // fa_a[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
-            fa_a[f] = mLocGlo.util.unsigned_area(f);
+            fa_a[f] = mLocGlo.util.unsigned_area(f) / fOriMap[int(f)];
             if (fa_a[f] < minArea) {
                 minArea = fa_a[f];
             } else if (fa_a[f] > maxArea) {
