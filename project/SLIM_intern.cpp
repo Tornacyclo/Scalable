@@ -86,25 +86,8 @@ void compute_surface_gradient_matrix(const Eigen::MatrixXd &V, const Eigen::Matr
     Eigen::SparseMatrix<double> G;
     igl::grad(V, F, G);
     Eigen::SparseMatrix<double> Dx = G.block(0, 0, F.rows(), V.rows());
-    // Eigen::SparseMatrix<double> Dy = G.block(F.rows(), 0, F.rows(), V.rows());
-    // Eigen::SparseMatrix<double> Dz = G.block(2 * F.rows(), 0, F.rows(), V.rows());
-    Eigen::SparseMatrix<double> Dz = G.block(2 * F.rows(), 0, F.rows(), V.rows());
     Eigen::SparseMatrix<double> Dy = G.block(F.rows(), 0, F.rows(), V.rows());
-
-    /*Distance dk:
-           0
--5.55112e-17
- 1.11022e-16
-           0
-           0
-           0
-Distance dk:
-           0
--5.55112e-17
- 1.11022e-16
-           0
-           0
-           0*/
+    Eigen::SparseMatrix<double> Dz = G.block(2 * F.rows(), 0, F.rows(), V.rows());
 
     D1 = F1.col(0).asDiagonal() * Dx + F1.col(1).asDiagonal() * Dy + F1.col(2).asDiagonal() * Dz;
     D2 = F2.col(0).asDiagonal() * Dx + F2.col(1).asDiagonal() * Dy + F2.col(2).asDiagonal() * Dz;
