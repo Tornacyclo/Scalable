@@ -1492,7 +1492,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     strncpy(times_txt, stem, first_word_length);
     times_txt[first_word_length] = '\0';
     strcat(times_txt, ".txt");
-    std::ofstream timeFile(times_txt, std::ios::app); // append mode
+    std::ofstream timeFile(times_txt, std::ios::app); // Append mode
 
     char ext2[12] = ".geogram";
     char method[20] = "_local_global_";
