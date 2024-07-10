@@ -47,6 +47,8 @@ using namespace UM;
 
 
 
+// WARNING: For UltiMaille, v.pos()[0] is the x-coordinate, v.pos()[1] is the z-coordinate and v.pos()[2] is the y-coordinate
+// WARNING: For libigl, V.col(0) is the x-coordinate, V.col(1) is the z-coordinate and V.col(2) is the y-coordinate
 class TrianglesMapping {
 public:
     TrianglesMapping(const int acount, char** avariable);
@@ -86,6 +88,12 @@ private:
     std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
     Eigen::MatrixXd Af;
     Eigen::SparseMatrix<double> Dx, Dy;
+    double lambda = 1e-4;
+    Eigen::VectorXd flattened_weight_matrix;
+    Eigen::VectorXd mass;
+    double weight_option = 1;
+    Eigen::VectorXd rhs;
+    int dimension = 2;
     char energy[65] = "ARAP";
     int max_iterations = 11;
     

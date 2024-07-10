@@ -6,6 +6,8 @@
 
 
 
+// WARNING: For UltiMaille, v.pos()[0] is the x-coordinate, v.pos()[1] is the z-coordinate and v.pos()[2] is the y-coordinate
+// WARNING: For libigl, V.col(0) is the x-coordinate, V.col(1) is the z-coordinate and V.col(2) is the y-coordinate
 TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
     Tut63(acount, avariable);
 	// strcpy(energy, distortion);
@@ -72,36 +74,55 @@ void TrianglesMapping::reference_mesh(Triangles& map) {
 }
 
 std::pair<Eigen::Vector3d, Eigen::Vector3d> TrianglesMapping::compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3) {
-		double A = 0.5 * std::fabs(u1 * v2 + u2 * v3 + u3 * v1 - u1 * v3 - u2 * v1 - u3 * v2);
-		Eigen::Vector3d dudN, dvdN;
-		dudN << (v2 - v3) / (2 * A), (v3 - v1) / (2 * A), (v1 - v2) / (2 * A);
-		dvdN << (u3 - u2) / (2 * A), (u1 - u3) / (2 * A), (u2 - u1) / (2 * A);
-		return std::make_pair(dudN, dvdN);
+    double A = 0.5 * std::fabs(u1 * v2 + u2 * v3 + u3 * v1 - u1 * v3 - u2 * v1 - u3 * v2);
+    Eigen::Vector3d dudN, dvdN;
+    dudN << (v2 - v3) / (2 * A), (v3 - v1) / (2 * A), (v1 - v2) / (2 * A);
+    dvdN << (u3 - u2) / (2 * A), (u1 - u3) / (2 * A), (u2 - u1) / (2 * A);
+    return std::make_pair(dudN, dvdN);
 }
 
 void compute_surface_gradient_matrix(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const Eigen::MatrixXd &F1,
                                     const Eigen::MatrixXd &F2, Eigen::SparseMatrix<double> &D1, Eigen::SparseMatrix<double> &D2) {
-      Eigen::SparseMatrix<double> G;
-      igl::grad(V, F, G);
-      Eigen::SparseMatrix<double> Dx = G.block(0, 0, F.rows(), V.rows());
-      Eigen::SparseMatrix<double> Dy = G.block(F.rows(), 0, F.rows(), V.rows());
-      Eigen::SparseMatrix<double> Dz = G.block(2 * F.rows(), 0, F.rows(), V.rows());
+    Eigen::SparseMatrix<double> G;
+    igl::grad(V, F, G);
+    Eigen::SparseMatrix<double> Dx = G.block(0, 0, F.rows(), V.rows());
+    // Eigen::SparseMatrix<double> Dy = G.block(F.rows(), 0, F.rows(), V.rows());
+    // Eigen::SparseMatrix<double> Dz = G.block(2 * F.rows(), 0, F.rows(), V.rows());
+    Eigen::SparseMatrix<double> Dz = G.block(2 * F.rows(), 0, F.rows(), V.rows());
+    Eigen::SparseMatrix<double> Dy = G.block(F.rows(), 0, F.rows(), V.rows());
 
-      D1 = F1.col(0).asDiagonal() * Dx + F1.col(1).asDiagonal() * Dy + F1.col(2).asDiagonal() * Dz;
-      D2 = F2.col(0).asDiagonal() * Dx + F2.col(1).asDiagonal() * Dy + F2.col(2).asDiagonal() * Dz;
+    /*Distance dk:
+           0
+-5.55112e-17
+ 1.11022e-16
+           0
+           0
+           0
+Distance dk:
+           0
+-5.55112e-17
+ 1.11022e-16
+           0
+           0
+           0*/
+
+    D1 = F1.col(0).asDiagonal() * Dx + F1.col(1).asDiagonal() * Dy + F1.col(2).asDiagonal() * Dz;
+    D2 = F2.col(0).asDiagonal() * Dx + F2.col(1).asDiagonal() * Dy + F2.col(2).asDiagonal() * Dz;
 }
 
 void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     num_vertices = map.nverts();
     num_triangles = map.nfacets();
-    /*Dx = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
-    Dy = Eigen::SparseMatrix<double>(num_triangles, num_vertices);*/
     if (!lineSearch) {xk_1 = Eigen::VectorXd::Zero(2 * num_vertices);}
     // if (first_time) {Af = Eigen::MatrixXd::Zero(num_triangles, num_triangles);}
 
     Jac.clear();
     Rot.clear();
     int ind = 0;
+
+    Eigen::SparseMatrix<double> Dx_faux, Dy_faux;
+    Dx_faux = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
+    Dy_faux = Eigen::SparseMatrix<double>(num_triangles, num_vertices);
     std::vector<Eigen::Triplet<double>> Dx_triplets;
     std::vector<Eigen::Triplet<double>> Dy_triplets;
 
@@ -191,30 +212,32 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
         ind++;
     }
 
-    /*Jac.clear();
-    Rot.clear();*/
+    // Assemble the sparse matrices Dx and Dy
+    Dx_faux.setFromTriplets(Dx_triplets.begin(), Dx_triplets.end());
+    Dy_faux.setFromTriplets(Dy_triplets.begin(), Dy_triplets.end());
+    // std::cout << "C'EST FAUX\n" << Dx_faux << std::endl;
 
-    Eigen::SparseMatrix<double> Dx, Dy;
-    std::cout << "The output mesh has been written to " << output_name_obj << std::endl;
+    Jac.clear();
+    Rot.clear();
+    Wei.clear();
+    
     Eigen::MatrixXd F1, F2, F3;
     igl::local_basis(V, F, F1, F2, F3);
-    compute_surface_gradient_matrix(V, F, F1, F2, Dx, Dy);
-    std::cout << "The output mesh has been written to " << Dx << std::endl;
-    // Ji=[D1*u,D2*u,D1*v,D2*v];
-    Ji = Eigen::MatrixXd::Zero(num_triangles, 4);
+    compute_surface_gradient_matrix(V, F, F1, F3, Dx, Dy);
+    // std::cout << "C'EST JUSTE\n" << Dx << std::endl;
+    // Ji=[D1*u, D2*u, D1*v, D2*v];
+    Ji = Eigen::MatrixXd::Zero(num_triangles, dimension * dimension);
     Ji.col(0) = Dx * V_1.col(0);
     Ji.col(1) = Dy * V_1.col(0);
-    Ji.col(2) = Dx * V_1.col(1);
-    Ji.col(3) = Dy * V_1.col(1);
+    Ji.col(2) = Dx * V_1.col(2);
+    Ji.col(3) = Dy * V_1.col(2);
 
-    /*for (int i = 0; i < Ji.rows(); ++i) {
-        typedef Eigen::Matrix<double, 2, 2> Mat2;
-        typedef Eigen::Matrix<double, 2, 1> Vec2;
-        Mat2 ji, ri, ti, ui, vi;
-        Vec2 sing;
-        Vec2 closest_sing_vec;
-        Mat2 mat_W;
-        Vec2 m_sing_new;
+    for (int i = 0; i < Ji.rows(); ++i) {
+        Eigen::Matrix<double, 2, 2> ji, ri, ti, ui, vi;
+        Eigen::Matrix<double, 2, 1> sing;
+        Eigen::Matrix<double, 2, 1> closest_sing_vec;
+        Eigen::Matrix<double, 2, 2> mat_W;
+        Eigen::Matrix<double, 2, 1> m_sing_new;
         double s1, s2;
 
         ji(0, 0) = Ji(i, 0);
@@ -229,11 +252,15 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
         Jac.push_back(ji);
         Rot.push_back(ri);
-    }*/
-    std::cout << "The output mesh has been written to " << output_name_obj << std::endl;
-    // Assemble the sparse matrices Dx and Dy
-    /*Dx.setFromTriplets(Dx_triplets.begin(), Dx_triplets.end());
-    Dy.setFromTriplets(Dy_triplets.begin(), Dy_triplets.end());*/
+
+        m_sing_new << 1, 1;
+
+        if (std::abs(s1 - 1) < 1e-8) m_sing_new(0) = 1;
+        if (std::abs(s2 - 1) < 1e-8) m_sing_new(1) = 1;
+        mat_W = ui * m_sing_new.asDiagonal() * ui.transpose();
+
+        Wei.push_back(mat_W);
+    }
 
     first_time = false;
 }
@@ -245,7 +272,7 @@ void TrianglesMapping::update_weights() {
 			Wei.push_back(Eigen::Matrix2d::Identity());
 		}
 	}
-	else if (strcmp(energy, "symm_dirichlet") == 0) {
+	else if (strcmp(energy, "SYMMETRIC_DIRICHLET") == 0) {
 		//
 	}
 	else if (strcmp(energy, "dmitry") == 0) {
@@ -254,9 +281,12 @@ void TrianglesMapping::update_weights() {
 }
 
 void TrianglesMapping::least_squares() {
-	Eigen::SparseMatrix<double> A(4 * num_triangles, 2 * num_vertices);
-	Eigen::VectorXd b = Eigen::VectorXd::Zero(4 * num_triangles);
-
+	// Eigen::SparseMatrix<double> A(4 * num_triangles, 2 * num_vertices);
+    Eigen::SparseMatrix<double> A(dimension * dimension * num_triangles, dimension * num_vertices);
+	//  Eigen::VectorXd b = Eigen::VectorXd::Zero(4 * num_triangles);
+    Eigen::VectorXd b(dimension * dimension * num_triangles);
+    b.setZero();
+    
 	// Create diagonal matrices W11, W12, W21, W22 as vectors
 	Eigen::VectorXd W11_diag = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd W12_diag = Eigen::VectorXd::Zero(num_triangles);
@@ -283,53 +313,92 @@ void TrianglesMapping::least_squares() {
 		R22(i) = Rot[i](1, 1);
 	}
 
-	// Fill in the A matrix
-    std::vector<Eigen::Triplet<double>> triplets;
-    for (int i = 0; i < num_triangles; ++i) {
-        double Af_i = Af(i, i); // Accessing the diagonal element of Af
+    std::vector<Eigen::Triplet<double>> triplet;
+    triplet.reserve(4 * (Dx.outerSize() + Dy.outerSize()));
+    // Fill in the A matrix
+    /*A = [W11*Dx, W12*Dx;
+           W11*Dy, W12*Dy;
+           W21*Dx, W22*Dx;
+           W21*Dy, W22*Dy];*/
+    for (int k = 0; k < Dx.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(Dx, k); it; ++it) {
+        int dx_row = it.row();
+        int dx_col = it.col();
+        double val = it.value();
 
-        for (int k = 0; k < Dx.outerSize(); ++k) {
-            for (Eigen::SparseMatrix<double>::InnerIterator it(Dx, k); it; ++it) {
-                if (it.row() == i) { // Check if the current non-zero element belongs to the current triangle
-                    int j = it.col();
-                    triplets.push_back({i, j, Af_i * W11_diag(i) * it.value()});
-                    triplets.push_back({i, num_vertices + j, Af_i * W12_diag(i) * it.value()});
-                    triplets.push_back({num_triangles + i, j, Af_i * W21_diag(i) * it.value()});
-                    triplets.push_back({num_triangles + i, num_vertices + j, Af_i * W22_diag(i) * it.value()});
-                }
-            }
+        triplet.push_back(Eigen::Triplet<double>(dx_row, dx_col, val * W11_diag(dx_row)));
+        triplet.push_back(Eigen::Triplet<double>(dx_row, num_vertices + dx_col, val * W12_diag(dx_row)));
+
+        triplet.push_back(Eigen::Triplet<double>(2 * num_triangles + dx_row, dx_col, val * W21_diag(dx_row)));
+        triplet.push_back(Eigen::Triplet<double>(2 * num_triangles + dx_row, num_vertices + dx_col, val * W22_diag(dx_row)));
         }
+    }
+    
+    for (int k = 0; k < Dy.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(Dy, k); it; ++it) {
+        int dy_row = it.row();
+        int dy_col = it.col();
+        double val = it.value();
 
-        for (int k = 0; k < Dy.outerSize(); ++k) {
-            for (Eigen::SparseMatrix<double>::InnerIterator it(Dy, k); it; ++it) {
-                if (it.row() == i) { // Check if the current non-zero element belongs to the current triangle
-                    int j = it.col();
-                    triplets.push_back({2 * num_triangles + i, j, Af_i * W11_diag(i) * it.value()});
-                    triplets.push_back({2 * num_triangles + i, num_vertices + j, Af_i * W12_diag(i) * it.value()});
-                    triplets.push_back({3 * num_triangles + i, j, Af_i * W21_diag(i) * it.value()});
-                    triplets.push_back({3 * num_triangles + i, num_vertices + j, Af_i * W22_diag(i) * it.value()});
-                }
-            }
+        triplet.push_back(Eigen::Triplet<double>(num_triangles + dy_row, dy_col, val * W11_diag(dy_row)));
+        triplet.push_back(Eigen::Triplet<double>(num_triangles + dy_row, num_vertices + dy_col, val * W12_diag(dy_row)));
+
+        triplet.push_back(Eigen::Triplet<double>(3 * num_triangles + dy_row, dy_col, val * W21_diag(dy_row)));
+        triplet.push_back(Eigen::Triplet<double>(3 * num_triangles + dy_row, num_vertices + dy_col, val * W22_diag(dy_row)));
         }
     }
 
-	A.setFromTriplets(triplets.begin(), triplets.end());
+	A.setFromTriplets(triplet.begin(), triplet.end());
+    Eigen::SparseMatrix<double> At = A.transpose();
+    At.makeCompressed();
+
+    Eigen::SparseMatrix<double> identity_dimA(At.rows(), At.rows());
+    identity_dimA.setIdentity();
+
+    // Add a proximal term
+    flattened_weight_matrix.resize(dimension * dimension * num_triangles);
+    mass.resize(num_triangles);
+	mass.setConstant(weight_option); // All the weights are equal to 1
+    for (int i = 0; i < dimension * dimension; i++)
+        for (int j = 0; j < num_triangles; j++)
+            flattened_weight_matrix(i * num_triangles + j) = mass(j);
+    Eigen::SparseMatrix<double> L;
+    L = At * flattened_weight_matrix.asDiagonal() * A + lambda * identity_dimA;
+    L.makeCompressed();
 
 	// Fill in the b vector
-	for (int i = 0; i < num_triangles; ++i) {
-		double Af_i = Af(i, i);
+    /*b = [W11*R11 + W12*R21;
+           W11*R12 + W12*R22;
+           W21*R11 + W22*R21;
+           W21*R12 + W22*R22];*/
+    for (int i = 0; i < num_triangles; i++) {
+        b(i + 0 * num_triangles) = W11_diag(i) * R11(i) + W12_diag(i) * R21(i);
+        b(i + 1 * num_triangles) = W11_diag(i) * R12(i) + W12_diag(i) * R22(i);
+        b(i + 2 * num_triangles) = W21_diag(i) * R11(i) + W22_diag(i) * R21(i);
+        b(i + 3 * num_triangles) = W21_diag(i) * R12(i) + W22_diag(i) * R22(i);
+    }
 
-		b(i) = Af_i * (W11_diag(i) * R11(i) + W12_diag(i) * R12(i));
-		b(num_triangles + i) = Af_i * (W21_diag(i) * R11(i) + W22_diag(i) * R12(i));
-		b(2 * num_triangles + i) = Af_i * (W11_diag(i) * R21(i) + W12_diag(i) * R22(i));
-		b(3 * num_triangles + i) = Af_i * (W21_diag(i) * R21(i) + W22_diag(i) * R22(i));
+    Eigen::VectorXd uv_flat_1(dimension * num_vertices);
+        for (int j = 0; j < num_vertices; j++) {
+            uv_flat_1(0 * num_vertices + j) = V_1(j, 0);
+            uv_flat_1(1 * num_vertices + j) = V_1(j, 2);
+        }
+    
+    rhs.resize(dimension * num_vertices);
+    rhs = (At * flattened_weight_matrix.asDiagonal() * b + lambda * uv_flat_1);
+
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
+    xk = solver.compute(L).solve(rhs);
+    if(solver.info() != Eigen::Success) {
+		// Solving failed
+		std::cerr << "Solving failed" << std::endl;
+		return;
 	}
 
 	// Use an iterative solver
-	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver; // ConjugateGradient solver for symmetric positive definite matrices
+	/*Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver; // ConjugateGradient solver for symmetric positive definite matrices
     // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver; // BiCGSTAB solver for square matrices	
-    std::cout << "1" << std::endl;
-    double lambda = 0.0001;
+    std::cout << W11_diag << std::endl;
     Eigen::SparseMatrix<double> AtA = A.transpose() * A + lambda * Eigen::MatrixXd::Identity(2 * num_vertices, 2 * num_vertices);
     solver.compute(AtA);
     std::cout << "2" << std::endl;
@@ -358,7 +427,7 @@ void TrianglesMapping::least_squares() {
 		// Solving failed
 		std::cerr << "Solving failed" << std::endl;
 		return;
-	}
+	}*/
 
     /*Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver; // SimplicialLLT solver for square matrices
     std::cout << "1" << std::endl;
@@ -384,8 +453,10 @@ void TrianglesMapping::least_squares() {
         return;
     }*/
 
-	dk = xk - xk_1;
-	// std::cout << "Distance dk:" << std::endl << dk << std::endl;
+	dk = xk - uv_flat_1;
+	std::cout << "Distance dk:" << std::endl << dk(4) << std::endl;
+    dk = xk - xk_1;
+	std::cout << "Distance dk:" << std::endl << dk(4) << std::endl;
 }
 
 void TrianglesMapping::verify_flips(Triangles& map,
@@ -574,8 +645,8 @@ void TrianglesMapping::add_energies_jacobians(double& norm_arap_e, bool flips_li
 			// double sigma_geo_avg = sqrt(s1*s2);
 			// conf_e += Af(i, i) * (pow(log(s1/sigma_geo_avg),2) + pow(log(s2/sigma_geo_avg),2));
 			// conf_e += Af(i, i) * ( (pow(s1,2)+pow(s2,2))/(2*s1*s2) );
-			norm_arap_e += pow(Af(i, i), 2) * (pow(s1-1, 2) + pow(s2-1, 2));
-            mini_energy += pow(Af(i, i), 2) * (pow(s1-1, 2) + pow(s2-1, 2)); // UTILISER UNE VARIABLE
+			norm_arap_e += Af(i, i) * (pow(s1-1, 2) + pow(s2-1, 2));
+            mini_energy += Af(i, i) * (pow(s1-1, 2) + pow(s2-1, 2)); // UTILISER UNE VARIABLE
 			// amips +=  Af(i, i) * exp(exp_factor* (  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) );
 			// exp_symmd += Af(i, i) * exp(exp_factor*(pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2)));
 			// amips +=  Af(i, i) * exp(  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) ;
@@ -972,7 +1043,7 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
     Af = Eigen::MatrixXd::Zero(mOri.nfacets(), mOri.nfacets());
     for (auto f : mOri.iter_facets()) {
         // Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
-        Af(ind, ind) = std::sqrt(area[int(f)]);
+        Af(ind, ind) = area[int(f)];
         ind++;
     }
 
@@ -1294,21 +1365,20 @@ void TrianglesMapping::Tut63(const int acount, char** avariable) {
         return;
     }*/
 
-   Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
-    solver.compute(A_II_A_BB);
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
+    // solver.compute(A_II_A_BB);
+
+    A_II_A_BB.makeCompressed();
+    Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
+    solver.analyzePattern(A_II_A_BB);
+    solver.factorize(A_II_A_BB);
     if (solver.info() != Eigen::Success) {
-        // Decomposition failed
         std::cerr << "Decomposition failed" << std::endl;
         return;
     }
-
-    /*// Set higher precision by adjusting tolerance and max iterations
-    solver.setTolerance(1e-10);  // Set a tighter tolerance
-    solver.setMaxIterations(10000);  // Increase the maximum number of iterations*/
-
+    
     Eigen::MatrixXd x_I_full = solver.solve(lhsF);
     if (solver.info() != Eigen::Success) {
-        // Solving failed
         std::cerr << "Solving failed" << std::endl;
         return;
     }
@@ -1433,7 +1503,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         auto start = std::chrono::high_resolution_clock::now();
         jacobian_rotation_area(mLocGlo, false);
         std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
-        update_weights();
+        // update_weights();
         std::cout << "update_weights();" << std::endl;
         least_squares();
         std::cout << "least_squares();" << std::endl;
@@ -1568,98 +1638,108 @@ Export .obj ou .geogram, coordonnées de texture pour graphite
 
 
 
-void TrianglesMapping::computeAnalyticalGradient(const Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
-    // Ensure grad is the correct size
-    grad.resize(x.size());
-    grad.setZero();
+void SymmetricDirichlet::compute_negative_gradient(const Eigen::MatrixXd& V,
+					  const Eigen::MatrixXi& F,
+					  const Eigen::MatrixXd& uv,
+					  Eigen::MatrixXd& neg_grad) {
 
-    // Reset vertex positions according to x
-    for (auto v : map.iter_vertices()) {
-        v.pos()[0] = x(int(v));
-        v.pos()[2] = x(int(v) + num_vertices);
-    }
+	//cout << "computing gradient the old way" << endl;
+  	Eigen::VectorXd dblArea_p;
+  	igl::doublearea(uv,F, dblArea_p);
+  	//cout << "V area sum = " << m_dblArea_orig.sum() << " and uv area sum = " << dblArea_p.sum() << endl;
 
-    // Compute areas and internal state needed for gradients
-    jacobian_rotation_area(map, true); // Assuming this computes areas and caches necessary values
+	neg_grad.setZero();
+	// for DBG
+	// Eigen::MatrixXd left_grad(neg_grad.rows(),neg_grad.cols()); left_grad.setZero();
+	// Eigen::MatrixXd right_grad(neg_grad.rows(),neg_grad.cols()); right_grad.setZero();
+	for (int i = 0; i < F.rows(); i++) {
+		// add to the vertices gradient
+		
+		double energy_left_part = m_cached_l_energy_per_face[i];
+		double energy_right_part = m_cached_r_energy_per_face[i];
 
-    // Calculate per-face area for original and current configurations
-    Eigen::VectorXd dblArea_orig, dblArea_p;
-    compute_double_area(map, dblArea_orig); // Custom function to compute double area for the original configuration
-    compute_double_area(map, dblArea_p);    // Custom function to compute double area for the current configuration
+		double t_orig_area = m_dblArea_orig(i)/2;
+		double t_uv_area = dblArea_p(i)/2;
+		double left_grad_const = -pow(t_orig_area,2)/pow(t_uv_area,3);
 
-    // Placeholder for energy per face computation
-    Eigen::VectorXd m_cached_l_energy_per_face(map.num_faces());
-    Eigen::VectorXd m_cached_r_energy_per_face(map.num_faces());
+		for (int j = 0; j < 3; j++) {
+			int v1 = j; int v2 = (j+1)%3; int v3 = (j+2)%3;
+			int v1_i = F(i,j); int v2_i = F(i,(j + 1)%3); int v3_i = F(i,(j + 2)%3);
+			// compute left gradient
+			Eigen::RowVector2d c_left_grad;
+			Eigen::RowVector2d rotated_left_grad = (left_grad_const * (uv.row(v2_i)-uv.row(v3_i)));
+			c_left_grad(0) = rotated_left_grad(1); c_left_grad(1) = -rotated_left_grad(0);
+			
+			// compute right gradient
+			Eigen::RowVector2d c_right_grad;
+			//− cot(θ2)U3 − cot(θ3)U2 + (cot(θ2) + cot(θ3))U1
+			// note: the entries for this function are half of the contangents
+			
+			c_right_grad = -m_cot_entries(i,v2)*uv.row(v3_i) - m_cot_entries(i,v3)*uv.row(v2_i) 
+						+ (m_cot_entries(i,v2) + m_cot_entries(i,v3))*uv.row(v1_i);
+			
+			// product rule (and subtract from vector cause we compute the negative of the gradient)
+			neg_grad.row(v1_i) = neg_grad.row(v1_i) - (c_left_grad * energy_right_part + c_right_grad * energy_left_part);
 
-    // Placeholder for cotangent entries
-    Eigen::MatrixXd m_cot_entries(map.num_faces(), 3);
-
-    // Compute energy per face and cotangent entries
-    for (int i = 0; i < map.num_faces(); ++i) {
-        auto& face = map.get_face(i);
-
-        // Compute edge vectors
-        Eigen::Vector2d v0 = map.vertex(face.vertex_index(0)).pos();
-        Eigen::Vector2d v1 = map.vertex(face.vertex_index(1)).pos();
-        Eigen::Vector2d v2 = map.vertex(face.vertex_index(2)).pos();
-
-        Eigen::Vector2d e0 = v1 - v0;
-        Eigen::Vector2d e1 = v2 - v1;
-        Eigen::Vector2d e2 = v0 - v2;
-
-        // Compute cotangent entries
-        m_cot_entries(i, 0) = compute_cotangent(e0, e2);
-        m_cot_entries(i, 1) = compute_cotangent(e1, -e0);
-        m_cot_entries(i, 2) = compute_cotangent(e2, -e1);
-
-        // Compute energy per face (placeholder example)
-        m_cached_l_energy_per_face(i) = e0.squaredNorm(); // Replace with actual energy computation
-        m_cached_r_energy_per_face(i) = e1.squaredNorm(); // Replace with actual energy computation
-    }
-
-    // Adjust gradients based on area terms
-    for (int i = 0; i < map.num_faces(); ++i) {
-        double t_orig_area = dblArea_orig(i) / 2.0;
-        double t_uv_area = dblArea_p(i) / 2.0;
-        double left_grad_const = -pow(t_orig_area, 2) / pow(t_uv_area, 3);
-
-        auto& face = map.get_face(i);
-        for (int j = 0; j < 3; ++j) {
-            int v1 = face.vertex_index(j);
-            int v2 = face.vertex_index((j + 1) % 3);
-            int v3 = face.vertex_index((j + 2) % 3);
-
-            // Compute left gradient
-            Eigen::Vector2d rotated_left_grad = left_grad_const * (map.vertex(v2).pos() - map.vertex(v3).pos());
-            Eigen::Vector2d c_left_grad(rotated_left_grad.y(), -rotated_left_grad.x());
-
-            // Compute right gradient
-            Eigen::Vector2d c_right_grad = -m_cot_entries(i, v2) * map.vertex(v3).pos()
-                                           - m_cot_entries(i, v3) * map.vertex(v2).pos()
-                                           + (m_cot_entries(i, v2) + m_cot_entries(i, v3)) * map.vertex(v1).pos();
-
-            // Product rule and accumulation
-            grad(v1) -= (c_left_grad * m_cached_r_energy_per_face[i] + c_right_grad * m_cached_l_energy_per_face[i]);
-        }
-    }
+			// for DBG
+			// left_grad.row(v1_i) = left_grad.row(v1_i) + c_left_grad;
+			// right_grad.row(v1_i) = right_grad.row(v1_i) + c_right_grad;
+		}
+	}
+	//zero_out_const_vertices_search_direction(neg_grad);
 }
 
-double TrianglesMapping::compute_cotangent(const Eigen::Vector2d& e1, const Eigen::Vector2d& e2) {
-    double dot_product = e1.dot(e2);
-    double cross_product = e1.x() * e2.y() - e1.y() * e2.x();
-    return dot_product / cross_product;
+double SymmetricDirichlet::compute_energy(const Eigen::MatrixXd& V,
+    				 const Eigen::MatrixXi& F,
+    				 const Eigen::MatrixXd& uv) {
+  precompute(V,F); // in case we need precomputation
+	double energy = 0;
+	//cout << "normal compute energy!" << endl;
+
+	for (int i = 0; i < F.rows(); i++) {
+		double l_part = compute_face_energy_left_part(V,F,uv,i);
+		double r_part = compute_face_energy_right_part(V,F,uv,i, m_dblArea_orig(i));
+
+		energy += l_part * r_part;
+
+		// cache results for the gradient use
+		m_cached_l_energy_per_face[i] = l_part;
+		m_cached_r_energy_per_face[i] = r_part;
+
+	}
+	return energy;
 }
 
-void TrianglesMapping::compute_double_area(Triangles& map, Eigen::VectorXd& dblArea) {
-    // Custom function to compute the double area of each triangle in the mesh
-    dblArea.resize(map.num_faces());
-    for (int i = 0; i < map.num_faces(); ++i) {
-        auto& face = map.get_face(i);
-        Eigen::Vector2d v0 = map.vertex(face.vertex_index(0)).pos();
-        Eigen::Vector2d v1 = map.vertex(face.vertex_index(1)).pos();
-        Eigen::Vector2d v2 = map.vertex(face.vertex_index(2)).pos();
-        dblArea(i) = std::abs((v1 - v0).x() * (v2 - v0).y() - (v2 - v0).x() * (v1 - v0).y());
-    }
+double SymmetricDirichlet::compute_face_energy_left_part(const Eigen::MatrixXd& V,
+    				 const Eigen::MatrixXi& F,
+    				 const Eigen::MatrixXd& uv, int f) {
+	// compute current triangle squared area
+    auto rx = uv(F(f,0),0)-uv(F(f,2),0);
+    auto sx = uv(F(f,1),0)-uv(F(f,2),0);
+    auto ry = uv(F(f,0),1)-uv(F(f,2),1);
+    auto sy = uv(F(f,1),1)-uv(F(f,2),1);
+    double dblAd = rx*sy - ry*sx;
+	double uv_sqrt_dbl_area = dblAd*dblAd;
+    
+
+    return (1 + (m_dbl_sqrt_area(f)/uv_sqrt_dbl_area));
+}
+
+double SymmetricDirichlet::compute_face_energy_right_part(const Eigen::MatrixXd& V,
+    				 const Eigen::MatrixXi& F,
+    				 const Eigen::MatrixXd& uv,int f_idx,
+    				 double orig_t_dbl_area) {
+	int v_1 = F(f_idx,0); int v_2 = F(f_idx,1); int v_3 = F(f_idx,2);
+
+	double part_1 = (uv.row(v_3)-uv.row(v_1)).squaredNorm() * m_cached_edges_1[f_idx];
+	part_1 += (uv.row(v_2)-uv.row(v_1)).squaredNorm()* m_cached_edges_2[f_idx];
+	part_1 /= (2*orig_t_dbl_area);
+
+	double part_2_1 = (uv.row(v_3)-uv.row(v_1)).dot(uv.row(v_2)-uv.row(v_1));
+	double part_2_2 = m_cached_dot_prod[f_idx];
+	double part_2 = -(part_2_1 * part_2_2)/ (orig_t_dbl_area);
+
+	return part_1+part_2;
 }*/
 
     return 0;
