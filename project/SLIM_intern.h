@@ -47,8 +47,10 @@ using namespace UM;
 
 
 
-// WARNING: For UltiMaille, v.pos()[0] is the x-coordinate, v.pos()[1] is the z-coordinate and v.pos()[2] is the y-coordinate
-// WARNING: For libigl, V.col(0) is the x-coordinate, V.col(1) is the z-coordinate and V.col(2) is the y-coordinate
+// When using Graphite:
+// - For UltiMaille, v.pos()[0] is the x-coordinate, v.pos()[1] is the z-coordinate and v.pos()[2] is the y-coordinate
+// - For libigl, V.col(0) is the x-coordinate, V.col(1) is the z-coordinate and V.col(2) is the y-coordinate
+// For example, in an .obj file, v -1.000000 0.866000 0.000000, the x-coordinate is -1.000000, the z-coordinate is 0.866000 and the y-coordinate is 0.000000
 class TrianglesMapping {
 public:
     TrianglesMapping(const int acount, char** avariable);
@@ -74,7 +76,7 @@ private:
     std::unordered_map<int, Eigen::Matrix2d> Shape_1;
     std::unordered_map<int, mat<3,2>> ref_tri;
     bool first_time = true;
-    std::vector<double> norm_arap;
+    std::vector<double> distortion_energy;
     Eigen::MatrixXd EigenMap;
     char output_name_geo[120];
     char output_name_obj[120];
@@ -91,11 +93,13 @@ private:
     double lambda = 1e-4;
     Eigen::VectorXd flattened_weight_matrix;
     Eigen::VectorXd mass;
-    double weight_option = 1;
+    double weight_option = 1.0;
+    double exponential_factor = 1.0;
     Eigen::VectorXd rhs;
     int dimension = 2;
-    char energy[65] = "ARAP";
-    int max_iterations = 11;
+    const char* energy;
+    const char* orientation;
+    int max_iterations;
     
     std::chrono::high_resolution_clock::time_point totalStart;
     long long totalTime;
@@ -106,7 +110,7 @@ private:
     double triangle_aspect_ratio_2d(const vec2& v0, const vec2& v1, const vec2& v2);
     void reference_mesh(Triangles& map);
     void bound_vertices_circle_normalized(Triangles& map);
-    void Tut63(const int acount, char** avariable);
+    void Tut63(const char* name, int weights);
     std::pair<Eigen::Vector3d, Eigen::Vector3d> compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
     void jacobian_rotation_area(Triangles& map, bool lineSearch);
     void update_weights();
