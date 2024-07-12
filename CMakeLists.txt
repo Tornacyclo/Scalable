@@ -29,8 +29,17 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ultimaille)
 include_directories(${ultimaille_SOURCE_DIR})
 
-# Download Graphite
-file(DOWNLOAD https://github.com/BrunoLevy/GraphiteThree/releases/download/v3-1.8.4/graphite3-1.8.5-rc-win64.zip ${CMAKE_SOURCE_DIR}/graphite.zip)
+# Fetch the latest release URL using curl and jq
+execute_process(
+    COMMAND curl -s https://api.github.com/repos/BrunoLevy/GraphiteThree/releases/latest
+    COMMAND jq -r '.assets[] | select(.name | contains("win64.zip")) | .browser_download_url'
+    OUTPUT_VARIABLE LATEST_RELEASE_URL
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Download the latest release
+file(DOWNLOAD ${LATEST_RELEASE_URL} ${CMAKE_SOURCE_DIR}/graphite.zip)
+
 # Unzip Graphite
 execute_process(
     COMMAND ${CMAKE_COMMAND} -E tar xzf ${CMAKE_SOURCE_DIR}/graphite.zip
