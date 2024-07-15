@@ -1119,6 +1119,8 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     // char attribute[20] = "_distortion";
 
     strcpy(output_name_geo, stem);
+    strcat(output_name_geo, "/");
+    strcat(output_name_geo, stem);
     strcat(output_name_geo, method);
     if (weights == 1) {
         strcat(output_name_geo, weight1);
@@ -1132,6 +1134,8 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 
     char times_txt[100];
     strcpy(times_txt, stem);
+    strcat(times_txt, "/");
+    strcat(times_txt, stem);
     strcat(times_txt, ".txt");
     std::ofstream timeFile(times_txt); // Open a file for writing times
     auto start = std::chrono::high_resolution_clock::now();
@@ -1615,6 +1619,8 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     char times_txt[100];
     strncpy(times_txt, stem, first_word_length);
     times_txt[first_word_length] = '\0';
+    strcat(times_txt, "/");
+    strcat(times_txt, stem);
     strcat(times_txt, ".txt");
     std::ofstream timeFile(times_txt, std::ios::app); // Append mode
 
@@ -1658,6 +1664,8 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         
         output_name_geo[0] = '\0'; // Clear output_name
         strncpy(output_name_geo, stem, first_word_length);
+        strcat(output_name_geo, "/");
+        strcat(output_name_geo, stem);
         output_name_geo[first_word_length] = '\0'; // Ensure null-termination
         strcat(output_name_geo, method);
         strcat(output_name_geo, energy);
