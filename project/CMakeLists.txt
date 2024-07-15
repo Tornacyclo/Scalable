@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12...3.26)
 
-project(ultimaille-examples LANGUAGES C CXX)
+project(ultimaille-slim LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

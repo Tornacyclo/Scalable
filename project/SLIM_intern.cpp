@@ -109,9 +109,9 @@ double TrianglesMapping::triangle_aspect_ratio_2d(const vec2& v0, const vec2& v1
 
 void TrianglesMapping::reference_mesh(Triangles& map) {
     for (int f : facet_iter(map)) {
-            area[int(f)] = map.util.unsigned_area(f);
+            // area[int(f)] = map.util.unsigned_area(f); A DEBOGUER
             vec2 A,B,C;
-            map.util.project(f, A, B, C);
+            // map.util.project(f, A, B, C); A DEBOGUER
 
             double ar = triangle_aspect_ratio_2d(A, B, C);
             if (ar>10) { // If the aspect ratio is bad, assign an equilateral reference triangle
@@ -630,12 +630,12 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
         #define U31 current(int(f.vertex(2)))
         #define U32 current(int(f.vertex(2)) + num_vertices)
 
-        #define V11 destination(int(f.vertex(0)))
-        #define V12 destination(int(f.vertex(0)) + num_vertices)
-        #define V21 destination(int(f.vertex(1)))
-        #define V22 destination(int(f.vertex(1)) + num_vertices)
-        #define V31 destination(int(f.vertex(2)))
-        #define V32 destination(int(f.vertex(2)) + num_vertices)
+        #define V11 distance(int(f.vertex(0)))
+        #define V12 distance(int(f.vertex(0)) + num_vertices)
+        #define V21 distance(int(f.vertex(1)))
+        #define V22 distance(int(f.vertex(1)) + num_vertices)
+        #define V31 distance(int(f.vertex(2)))
+        #define V32 distance(int(f.vertex(2)) + num_vertices)
         
         
         double a = V11*V22 - V12*V21 - V11*V32 + V12*V31 + V21*V32 - V22*V31;
@@ -988,7 +988,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd
     // Bisection line search with max_iter limit
     double alphaLow = 0.0;
     double alphaHigh = alphaStep;
-    int max_iter = 4;
+    int max_iter = 5;
     int iter = 0;
 
     /*while (iter < max_iter) {
@@ -1091,7 +1091,7 @@ void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {
     double area_b = 0;
     for (auto f : map.iter_facets()) {
         // area_b += calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
-        area_b += map.util.unsigned_area(f);
+        area_b += unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
     }
     double radius = sqrt(area_b / (M_PI));
 
@@ -1117,6 +1117,12 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     char weight1[20] = "_uniform";
     char weight2[20] = "_cotan";
     // char attribute[20] = "_distortion";
+
+    // Create directory if it doesn't exist
+    std::filesystem::path stem_dir(stem);
+    if (!std::filesystem::exists(stem_dir)) {
+        std::filesystem::create_directory(stem_dir);
+    }
 
     strcpy(output_name_geo, stem);
     strcat(output_name_geo, "/");
@@ -1164,13 +1170,14 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     mOri.connect();
     mTut.connect();
 
-    reference_mesh(mOri);
+    // reference_mesh(mOri);
 
     int ind = 0;
     Af = Eigen::MatrixXd::Zero(mOri.nfacets(), mOri.nfacets());
     for (auto f : mOri.iter_facets()) {
         // Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
-        Af(ind, ind) = area[int(f)];
+        // Af(ind, ind) = area[int(f)];
+        Af(ind, ind) = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
         ind++;
     }
 
@@ -1540,7 +1547,7 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     FacetAttribute<double> fa2(mOri);
     for (auto f : mOri.iter_facets()) {
         // double area = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
-        double area = mOri.util.unsigned_area(f);
+        double area = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
         fa2[f] = area;
         fOriMap[int(f)] = area;
     }
@@ -1556,12 +1563,12 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 
     Surface::Facet f(mTut, 0);
     // double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
-    double minArea = mTut.util.unsigned_area(f) / fOriMap[0];
+    double minArea = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
     double maxArea = minArea;
     FacetAttribute<double> fa(mTut);
     for (auto f : mTut.iter_facets()) {
         // fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
-        fa[f] = mTut.util.unsigned_area(f) / fa2[f];
+        fa[f] = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
         if (fa[f] < minArea) {
             minArea = fa[f];
         } else if (fa[f] > maxArea) {
@@ -1620,7 +1627,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     strncpy(times_txt, stem, first_word_length);
     times_txt[first_word_length] = '\0';
     strcat(times_txt, "/");
-    strcat(times_txt, stem);
+    strncat(times_txt, stem, first_word_length);
     strcat(times_txt, ".txt");
     std::ofstream timeFile(times_txt, std::ios::app); // Append mode
 
@@ -1664,9 +1671,10 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         
         output_name_geo[0] = '\0'; // Clear output_name
         strncpy(output_name_geo, stem, first_word_length);
-        strcat(output_name_geo, "/");
-        strcat(output_name_geo, stem);
         output_name_geo[first_word_length] = '\0'; // Ensure null-termination
+        strcat(output_name_geo, "/");
+        strncat(output_name_geo, stem, first_word_length);
+        
         strcat(output_name_geo, method);
         strcat(output_name_geo, energy);
         strcat(output_name_geo, "_");
@@ -1690,12 +1698,12 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
         Surface::Facet f(mLocGlo, 0);
         // double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
-        double minArea = mLocGlo.util.unsigned_area(f) / fOriMap[0];
+        double minArea = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
         double maxArea = minArea;
         FacetAttribute<double> fa_a(mLocGlo);
         for (auto f : mLocGlo.iter_facets()) {
             // fa_a[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
-            fa_a[f] = mLocGlo.util.unsigned_area(f) / fOriMap[int(f)];
+            fa_a[f] = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
             if (fa_a[f] < minArea) {
                 minArea = fa_a[f];
             } else if (fa_a[f] > maxArea) {
