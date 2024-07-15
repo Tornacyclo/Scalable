@@ -25,7 +25,7 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
                 if (strcmp(avariable[i], "xyz") == 0 || strcmp(avariable[i], "xzy") == 0 || strcmp(avariable[i], "yxz") == 0 || strcmp(avariable[i], "yzx") == 0 || strcmp(avariable[i], "zxy") == 0 || strcmp(avariable[i], "zyx") == 0) {
                     orientation = avariable[i];
                 }
-                else if (strcmp(avariable[i], "ARAP") == 0 || strcmp(avariable[i], "SYMMETRIC_DIRICHLET") == 0 || strcmp(avariable[i], "EXPONENTIAL_SYMMETRIC_DIRICHLET") == 0 || strcmp(avariable[i], "HENCKY_STRAIN") == 0 || strcmp(avariable[i], "AMIPS") == 0 || strcmp(avariable[i], "CONFORMAL_AMIPS_2D") == 0 || strcmp(avariable[i], "CONFORMAL_AMIPS_3D") == 0 || strcmp(avariable[i], "UNTANGLE_2D") == 0) {
+                else if (strcmp(avariable[i], "ARAP") == 0 || strcmp(avariable[i], "SYMMETRIC-DIRICHLET") == 0 || strcmp(avariable[i], "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0 || strcmp(avariable[i], "HENCKY-STRAIN") == 0 || strcmp(avariable[i], "AMIPS") == 0 || strcmp(avariable[i], "CONFORMAL-AMIPS-2D") == 0 || strcmp(avariable[i], "CONFORMAL-AMIPS-3D") == 0 || strcmp(avariable[i], "UNTANGLE-2D") == 0) {
                     energy = avariable[i];
                 }
                 else if (strncmp(avariable[i], "max_iterations=", 15) == 0) {
@@ -296,12 +296,12 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             if (strcmp(energy, "ARAP") == 0) {
                 m_sing_new << 1, 1;
             }
-            else if (strcmp(energy, "SYMMETRIC_DIRICHLET") == 0) {
+            else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
                 double s1_g = 2 * (s1 - pow(s1, -3));
                 double s2_g = 2 * (s2 - pow(s2, -3));
                 m_sing_new << sqrt(s1_g / (2 * (s1 - 1))), sqrt(s2_g / (2 * (s2 - 1)));
             }
-            else if (strcmp(energy, "EXPONENTIAL_SYMMETRIC_DIRICHLET") == 0) {
+            else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
                 double s1_g = 2 * (s1 - pow(s1, -3));
                 double s2_g = 2 * (s2 - pow(s2, -3));
 
@@ -313,7 +313,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 
                 m_sing_new << sqrt(s1_g / (2 * (s1 - 1))), sqrt(s2_g / (2 * (s2 - 1)));
             }
-            else if (strcmp(energy, "HENCKY_STRAIN") == 0) {
+            else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
                 double s1_g = 2 * (log(s1) / s1);
                 double s2_g = 2 * (log(s2) / s2);
                 m_sing_new << sqrt(s1_g / (2 * (s1 - 1))), sqrt(s2_g / (2 * (s2 - 1)));
@@ -321,13 +321,13 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             else if (strcmp(energy, "AMIPS") == 0) {
                 //
             }
-            else if (strcmp(energy, "CONFORMAL_AMIPS_2D") == 0) {
+            else if (strcmp(energy, "CONFORMAL-AMIPS-2D") == 0) {
                 //
             }
-            else if (strcmp(energy, "CONFORMAL_AMIPS_3D") == 0) {
+            else if (strcmp(energy, "CONFORMAL-AMIPS-3D") == 0) {
                 //
             }
-            else if (strcmp(energy, "UNTANGLE_2D") == 0) {
+            else if (strcmp(energy, "UNTANGLE-2D") == 0) {
                 //
             }
 
@@ -348,25 +348,25 @@ void TrianglesMapping::update_weights() {
 			Wei.push_back(Eigen::Matrix2d::Identity());
 		}
 	}
-	else if (strcmp(energy, "SYMMETRIC_DIRICHLET") == 0) {
+	else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
 		//
 	}
-    else if (strcmp(energy, "EXPONENTIAL_SYMMETRIC_DIRICHLET") == 0) {
+    else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
 		//
 	}
-    else if (strcmp(energy, "HENCKY_STRAIN") == 0) {
+    else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
 		//
 	}
     else if (strcmp(energy, "AMIPS") == 0) {
 		//
 	}
-    else if (strcmp(energy, "CONFORMAL_AMIPS_2D") == 0) {
+    else if (strcmp(energy, "CONFORMAL-AMIPS-2D") == 0) {
 		//
 	}
-    else if (strcmp(energy, "CONFORMAL_AMIPS_3D") == 0) {
+    else if (strcmp(energy, "CONFORMAL-AMIPS-3D") == 0) {
 		//
 	}
-	else if (strcmp(energy, "UNTANGLE_2D") == 0) {
+	else if (strcmp(energy, "UNTANGLE-2D") == 0) {
 		//
 	}
 }
@@ -741,28 +741,28 @@ void TrianglesMapping::add_energies_jacobians(double& energy_sum, bool flips_lin
                 mini_energy = Af(i, i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
                 energy_sum += mini_energy;
             }
-            else if (strcmp(energy, "SYMMETRIC_DIRICHLET") == 0) {
+            else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
                 mini_energy = Af(i, i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
                 energy_sum += mini_energy;
             }
-            else if (strcmp(energy, "EXPONENTIAL_SYMMETRIC_DIRICHLET") == 0) {
+            else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
                 mini_energy = Af(i, i) * exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
                 energy_sum += mini_energy;
             }
-            else if (strcmp(energy, "HENCKY_STRAIN") == 0) {
+            else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
                 mini_energy = Af(i, i) * (pow(log(s1), 2) + pow(log(s2), 2));
                 energy_sum += mini_energy;
             }
             else if (strcmp(energy, "AMIPS") == 0) {
                 //
             }
-            else if (strcmp(energy, "CONFORMAL_AMIPS_2D") == 0) {
+            else if (strcmp(energy, "CONFORMAL-AMIPS-2D") == 0) {
                 //
             }
-            else if (strcmp(energy, "CONFORMAL_AMIPS_3D") == 0) {
+            else if (strcmp(energy, "CONFORMAL-AMIPS-3D") == 0) {
                 //
             }
-            else if (strcmp(energy, "UNTANGLE_2D") == 0) {
+            else if (strcmp(energy, "UNTANGLE-2D") == 0) {
                 //
             }
 			// schaeffer_energy += Af(i, i) * (pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2));
@@ -833,25 +833,25 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
             /*if (strcmp(energy, "ARAP") == 0) {
                 energy_sum += Af(i, i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
             }
-            else if (strcmp(energy, "SYMMETRIC_DIRICHLET") == 0) {
+            else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
                 energy_sum += Af(i, i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
             }
-            else if (strcmp(energy, "EXPONENTIAL_SYMMETRIC_DIRICHLET") == 0) {
+            else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
                 energy_sum += Af(i, i) * exp(s.exp_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
             }
-            else if (strcmp(energy, "HENCKY_STRAIN") == 0) {
+            else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
                 energy_sum += Af(i, i) * (pow(log(s1), 2) + pow(log(s2), 2));
             }
             else if (strcmp(energy, "AMIPS") == 0) {
                 //
             }
-            else if (strcmp(energy, "CONFORMAL_AMIPS_2D") == 0) {
+            else if (strcmp(energy, "CONFORMAL-AMIPS-2D") == 0) {
                 //
             }
-            else if (strcmp(energy, "CONFORMAL_AMIPS_3D") == 0) {
+            else if (strcmp(energy, "CONFORMAL-AMIPS-3D") == 0) {
                 //
             }
-            else if (strcmp(energy, "UNTANGLE_2D") == 0) {
+            else if (strcmp(energy, "UNTANGLE-2D") == 0) {
                 //
             }*/
 
