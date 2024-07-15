@@ -1582,7 +1582,7 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     totalTime += duration; // Accumulate total time
     if (timeFile.is_open()) {
-        timeFile << "Initialisation" << "|" << duration << "|"; // Write iteration number and duration to file
+        timeFile << "0" << "|" << duration << "|"; // Write iteration number and duration to file
     }
 
     auto totalEnd = std::chrono::high_resolution_clock::now();
@@ -1658,7 +1658,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     else if (strcmp(orientation, "zyx") == 0) {
         compute_surface_gradient_matrix(V, F, F3, F2, Dx, Dy);
     }
-	for (int i = 0; i < max_iterations; ++i) {
+	for (int i = 1; i <= max_iterations; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         jacobian_rotation_area(mLocGlo, false);
         std::cout << "jacobian_rotation_area(mLocGlo);" << std::endl;
@@ -1674,7 +1674,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         output_name_geo[first_word_length] = '\0'; // Ensure null-termination
         strcat(output_name_geo, "/");
         strncat(output_name_geo, stem, first_word_length);
-        
+
         strcat(output_name_geo, method);
         strcat(output_name_geo, energy);
         strcat(output_name_geo, "_");
