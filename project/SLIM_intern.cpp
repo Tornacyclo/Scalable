@@ -612,7 +612,7 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	return alphaMax;
 }
 
- double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& destination) {
+ double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& distance) {
     double maximum_step = INFINITY;
     // updateUV(map, x);
     for (auto f : map.iter_facets()) {
@@ -938,14 +938,13 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
           m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));*/
 }
 
-double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& xk_destination, Eigen::VectorXd& dk,
-                      Triangles& map) {
+double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& dk, Triangles& map) {
     // Line search using Wolfe conditions
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
-    double alphaMax = minimum_step_singularities(map, xk_current, xk_destination);
-    // double alphaMax = determineAlphaMax(xk_current, xk_destination, map);
+    double alphaMax = minimum_step_singularities(map, xk_current, dk);
+    // double alphaMax = determineAlphaMax(xk_current, dk, map);
     
     double alphaStep = 0.99 * alphaMax;
     alphaStep = std::min(1.0, 0.8 * alphaMax);
@@ -1073,7 +1072,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd
 
 void TrianglesMapping::nextStep(Triangles& map) {
 	// Perform line search to find step size alpha
-	double alpha = lineSearch(xk_1, xk, dk, map);
+	double alpha = lineSearch(xk_1, dk, map);
 
 	// Update the solution xk
 	xk = xk_1 + alpha * dk;

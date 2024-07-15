@@ -119,7 +119,7 @@ private:
 				std::vector<int>& ind_flip);
     int flipsCount(Triangles& map);
     void updateUV(Triangles& map, const Eigen::VectorXd& xk);
-    double minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& destination);
+    double minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& distance);
     double smallest_position_quadratic_zero(double a, double b, double c);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
@@ -127,8 +127,7 @@ private:
     void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
     void computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
-    double lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& xk_destination, Eigen::VectorXd& dk,
-                      Triangles& map);
+    double lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& dk, Triangles& map);
     void nextStep(Triangles& map);
 };
 
