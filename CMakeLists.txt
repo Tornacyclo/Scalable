@@ -74,15 +74,14 @@ endif()
 # Debug output to check the fetched JSON
 message(STATUS "Release data: ${RELEASE_DATA}")
 
-# Write the release data to a temporary file for jq to process
-file(WRITE "${CMAKE_BINARY_DIR}/release_data.json" "${RELEASE_DATA}")
+# Initialize the variable for the latest release URL
+set(LATEST_RELEASE_URL "")
 
-# Use jq to extract the download URL for the Windows 64-bit zip file
-execute_process(
-    COMMAND jq -r ".assets[] | select(.name | endswith(\"win64.zip\")) | .browser_download_url" ${CMAKE_BINARY_DIR}/release_data.json
-    OUTPUT_VARIABLE LATEST_RELEASE_URL
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+# Extract the download URL for the Windows 64-bit zip file
+string(REGEX MATCH "\"browser_download_url\": \"[^\"]*win64.zip\"" URL_MATCH "${RELEASE_DATA}")
+if(URL_MATCH)
+    string(REGEX REPLACE ".*\"browser_download_url\": \"([^\"]*)\".*" "\\1" LATEST_RELEASE_URL "${URL_MATCH}")
+endif()
 
 # Check if the URL was retrieved successfully
 if(NOT LATEST_RELEASE_URL)
@@ -103,8 +102,5 @@ execute_process(
 
 # Remove the downloaded zip file
 file(REMOVE_RECURSE ${ZIP_FILE})
-
-# Clean up the temporary JSON file
-file(REMOVE_RECURSE ${CMAKE_BINARY_DIR}/release_data.json)
 
 add_subdirectory(project)
