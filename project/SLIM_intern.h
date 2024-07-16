@@ -78,8 +78,9 @@ private:
     bool first_time = true;
     std::vector<double> distortion_energy;
     Eigen::MatrixXd EigenMap;
-    char output_name_geo[200];
-    char output_name_obj[200];
+    char output_name_geo[250];
+    char output_name_obj[250];
+    char times_txt[150];
     int num_vertices;
 	int num_triangles;
     Eigen::MatrixXd V; // card(V) by 3, list of mesh vertex positions

@@ -1126,6 +1126,8 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 
     strcpy(output_name_geo, stem);
     strcat(output_name_geo, "/");
+    strcat(output_name_geo, energy);
+    strcat(output_name_geo, "/");
     strcat(output_name_geo, stem);
     strcat(output_name_geo, method);
     if (weights == 1) {
@@ -1138,8 +1140,9 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     strcat(output_name_geo, ext2);
     strcat(output_name_obj, ".obj");
 
-    char times_txt[100];
     strcpy(times_txt, stem);
+    strcat(times_txt, "/");
+    strcat(times_txt, energy);
     strcat(times_txt, "/");
     strcat(times_txt, stem);
     strcat(times_txt, ".txt");
@@ -1623,12 +1626,14 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     const char* first_space = strchr(stem, '_'); // Find the first space in stem
     size_t first_word_length = first_space ? (size_t)(first_space - stem) : strlen(stem); // Calculate length of the first word
     
-    char times_txt[100];
-    strncpy(times_txt, stem, first_word_length);
+    // char times_txt[100];
+    /*strncpy(times_txt, stem, first_word_length);
     times_txt[first_word_length] = '\0';
     strcat(times_txt, "/");
+    strcat(times_txt, energy);
+    strcat(times_txt, "/");
     strncat(times_txt, stem, first_word_length);
-    strcat(times_txt, ".txt");
+    strcat(times_txt, ".txt");*/
     std::ofstream timeFile(times_txt, std::ios::app); // Append mode
 
     char ext2[12] = ".geogram";
@@ -1672,6 +1677,8 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         output_name_geo[0] = '\0'; // Clear output_name
         strncpy(output_name_geo, stem, first_word_length);
         output_name_geo[first_word_length] = '\0'; // Ensure null-termination
+        strcat(output_name_geo, "/");
+        strcat(output_name_geo, energy);
         strcat(output_name_geo, "/");
         strncat(output_name_geo, stem, first_word_length);
 
