@@ -1124,6 +1124,11 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
         std::filesystem::create_directory(stem_dir);
     }
 
+    std::filesystem::path energy_dir = stem_dir / energy;
+    if (!std::filesystem::exists(energy_dir)) {
+        std::filesystem::create_directory(energy_dir);
+    }
+
     strcpy(output_name_geo, stem);
     strcat(output_name_geo, "/");
     strcat(output_name_geo, energy);
