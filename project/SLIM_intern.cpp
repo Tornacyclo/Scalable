@@ -14,7 +14,6 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
     const char* name = nullptr;
     int weights = -1;
     max_iterations = -1;
-    orientation = nullptr;
     energy = nullptr;
 
     if (acount > 1) {
@@ -22,10 +21,7 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
             if (strlen(avariable[i]) == 1 && isdigit(avariable[i][0])) {
                 weights = atoi(avariable[i]);
             } else if (strlen(avariable[i]) > 1) {
-                if (strcmp(avariable[i], "xyz") == 0 || strcmp(avariable[i], "xzy") == 0 || strcmp(avariable[i], "yxz") == 0 || strcmp(avariable[i], "yzx") == 0 || strcmp(avariable[i], "zxy") == 0 || strcmp(avariable[i], "zyx") == 0) {
-                    orientation = avariable[i];
-                }
-                else if (strcmp(avariable[i], "ARAP") == 0 || strcmp(avariable[i], "SYMMETRIC-DIRICHLET") == 0 || strcmp(avariable[i], "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0 || strcmp(avariable[i], "HENCKY-STRAIN") == 0 || strcmp(avariable[i], "AMIPS") == 0 || strcmp(avariable[i], "CONFORMAL-AMIPS-2D") == 0 || strcmp(avariable[i], "CONFORMAL-AMIPS-3D") == 0 || strcmp(avariable[i], "UNTANGLE-2D") == 0) {
+                if (strcmp(avariable[i], "ARAP") == 0 || strcmp(avariable[i], "SYMMETRIC-DIRICHLET") == 0 || strcmp(avariable[i], "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0 || strcmp(avariable[i], "HENCKY-STRAIN") == 0 || strcmp(avariable[i], "AMIPS") == 0 || strcmp(avariable[i], "CONFORMAL-AMIPS-2D") == 0 || strcmp(avariable[i], "CONFORMAL-AMIPS-3D") == 0 || strcmp(avariable[i], "UNTANGLE-2D") == 0) {
                     energy = avariable[i];
                 }
                 else if (strncmp(avariable[i], "max_iterations=", 15) == 0) {
@@ -47,10 +43,6 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
         #endif
     }
 
-    if (orientation == nullptr) {
-        orientation = "xyz";
-    }
-
     if (energy == nullptr) {
         energy = "ARAP";
     }
@@ -64,7 +56,6 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
     }
 
     std::cout << "Name: " << name << std::endl;
-    std::cout << "Orientation: " << orientation << std::endl;
     std::cout << "Energy: " << energy << std::endl;
     std::cout << "Weights: " << weights << std::endl;
     std::cout << "Max Iterations: " << max_iterations << std::endl;
@@ -266,10 +257,10 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     // std::cout << "C'EST JUSTE\n" << Dx << std::endl;
     // Ji=[D1*u, D2*u, D1*v, D2*v];
     Ji = Eigen::MatrixXd::Zero(num_triangles, dimension * dimension);
-    Ji.col(0) = Dx * V_1.col(0);
-    Ji.col(1) = Dy * V_1.col(0);
-    Ji.col(2) = Dx * V_1.col(1);
-    Ji.col(3) = Dy * V_1.col(1);
+    Ji.col(0) = D_x * V_1.col(0);
+    Ji.col(1) = D_y * V_1.col(0);
+    Ji.col(2) = D_x * V_1.col(1);
+    Ji.col(3) = D_y * V_1.col(1);
 
     for (int i = 0; i < Ji.rows(); ++i) {
         Eigen::Matrix<double, 2, 2> ji, ri, ti, ui, vi;
@@ -405,14 +396,14 @@ void TrianglesMapping::least_squares() {
 	}
 
     std::vector<Eigen::Triplet<double>> triplet;
-    triplet.reserve(4 * (Dx.outerSize() + Dy.outerSize()));
+    triplet.reserve(4 * (D_x.outerSize() + D_y.outerSize()));
     // Fill in the A matrix
     /*A = [W11*Dx, W12*Dx;
            W11*Dy, W12*Dy;
            W21*Dx, W22*Dx;
            W21*Dy, W22*Dy];*/
-    for (int k = 0; k < Dx.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(Dx, k); it; ++it) {
+    for (int k = 0; k < D_x.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(D_x, k); it; ++it) {
         int dx_row = it.row();
         int dx_col = it.col();
         double val = it.value();
@@ -425,8 +416,8 @@ void TrianglesMapping::least_squares() {
         }
     }
     
-    for (int k = 0; k < Dy.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(Dy, k); it; ++it) {
+    for (int k = 0; k < D_y.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(D_y, k); it; ++it) {
         int dy_row = it.row();
         int dy_col = it.col();
         double val = it.value();
@@ -470,10 +461,10 @@ void TrianglesMapping::least_squares() {
     }
 
     Eigen::VectorXd uv_flat_1(dimension * num_vertices);
-        for (int j = 0; j < num_vertices; j++) {
-            uv_flat_1(0 * num_vertices + j) = V_1(j, 0);
-            uv_flat_1(1 * num_vertices + j) = V_1(j, 1);
-        }
+    for (int j = 0; j < num_vertices; j++) {
+        uv_flat_1(0 * num_vertices + j) = V_1(j, 0);
+        uv_flat_1(1 * num_vertices + j) = V_1(j, 1);
+    }
     
     rhs.resize(dimension * num_vertices);
     // rhs = (At * flattened_weight_matrix.asDiagonal() * b + lambda * uv_flat_1);
@@ -581,6 +572,13 @@ void TrianglesMapping::updateUV(Triangles& map, const Eigen::VectorXd& xk) {
             f.vertex(j).pos()[0] = xk(v_ind);
             f.vertex(j).pos()[1] = xk(v_ind + num_vertices);
         }
+    }
+}
+
+void TrianglesMapping::fillUV(Eigen::MatrixXd& V_new, const Eigen::VectorXd& xk) {
+    for (int j = 0; j < num_vertices; j++) {
+        V_new(j, 0) = xk(0 * num_vertices + j);
+        V_new(j, 1) = xk(1 * num_vertices + j);
     }
 }
 
@@ -718,10 +716,17 @@ double TrianglesMapping::smallest_position_quadratic_zero(double a, double b, do
     }
 }
 
-void TrianglesMapping::add_energies_jacobians(double& energy_sum, bool flips_linesearch) {
+void TrianglesMapping::add_energies_jacobians(double& energy_sum, const Eigen::MatrixXd& V_new, bool flips_linesearch) {
 	// schaeffer_e = log_e = conf_e = amips = 0;
 	energy_sum = 0;
     distortion_energy.clear();
+
+    Ji = Eigen::MatrixXd::Zero(num_triangles, dimension * dimension);
+    Ji.col(0) = D_x * V_new.col(0);
+    Ji.col(1) = D_y * V_new.col(0);
+    Ji.col(2) = D_x * V_new.col(1);
+    Ji.col(3) = D_y * V_new.col(1);
+
 	for (int i = 0; i < num_triangles; i++) {
         Eigen::Matrix<double, 2, 2> ji, ri, ti, ui, vi;
         Eigen::Matrix<double, 2, 1> sing;
@@ -738,20 +743,20 @@ void TrianglesMapping::add_energies_jacobians(double& energy_sum, bool flips_lin
 
 		if (flips_linesearch) {
             if (strcmp(energy, "ARAP") == 0) {
-                mini_energy = Af(i, i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
-                energy_sum += mini_energy;
+                mini_energy = pow(s1 - 1, 2) + pow(s2 - 1, 2);
+                energy_sum += Af(i, i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
             }
             else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
-                mini_energy = Af(i, i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
-                energy_sum += mini_energy;
+                mini_energy = pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2);
+                energy_sum += Af(i, i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
             }
             else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
-                mini_energy = Af(i, i) * exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
-                energy_sum += mini_energy;
+                mini_energy = exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
+                energy_sum += Af(i, i) * exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
             }
             else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
-                mini_energy = Af(i, i) * (pow(log(s1), 2) + pow(log(s2), 2));
-                energy_sum += mini_energy;
+                mini_energy = pow(log(s1), 2) + pow(log(s2), 2);
+                energy_sum += Af(i, i) * (pow(log(s1), 2) + pow(log(s2), 2));
             }
             else if (strcmp(energy, "AMIPS") == 0) {
                 //
@@ -791,6 +796,12 @@ void TrianglesMapping::add_energies_jacobians(double& energy_sum, bool flips_lin
 
 void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map) {
     grad = Eigen::VectorXd::Zero(2 * num_vertices);
+
+    Ji = Eigen::MatrixXd::Zero(num_triangles, dimension * dimension);
+    Ji.col(0) = D_x * V_1.col(0);
+    Ji.col(1) = D_y * V_1.col(0);
+    Ji.col(2) = D_x * V_1.col(1);
+    Ji.col(3) = D_y * V_1.col(1);
 
     for (int i = 0; i < num_triangles; i++) {
         Eigen::JacobiSVD<Eigen::Matrix2d> svd(Jac[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -872,38 +883,6 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
     }
 }
 
-void TrianglesMapping::computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
-    double h = 1e-5; // small step for finite differences
-    double original_energy;
-    
-    // Compute the original energy at x
-    /*for (auto v : map.iter_vertices()) {
-        v.pos()[0] = x(int(v));
-        v.pos()[2] = x(int(v) + num_vertices);
-    }*/
-    updateUV(map, x);
-    jacobian_rotation_area(map, true);
-    add_energies_jacobians(original_energy, true);
-
-    // Iterate over each dimension of x to compute the partial derivative
-    for (int i = 0; i < x.size(); ++i) {
-        Eigen::VectorXd x_plus_h = x;
-        x_plus_h[i] += h;
-
-        double new_energy;
-        /*for (auto v : map.iter_vertices()) {
-            v.pos()[0] = x_plus_h(int(v));
-            v.pos()[2] = x_plus_h(int(v) + num_vertices);
-        }*/
-        updateUV(map, x_plus_h);
-        jacobian_rotation_area(map, true);
-        add_energies_jacobians(new_energy, true);
-
-        grad[i] = (new_energy - original_energy) / h;
-        std::cout << i << std::endl;
-    }
-}
-
 void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map) {
     // Ensure grad is the correct size
     grad.resize(x.size());
@@ -920,15 +899,15 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
     jacobian_rotation_area(map, true); // This function should set the internal state needed for gradients
 
     // Accumulate the gradients from Dx
-    for (int k = 0; k < Dx.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(Dx, k); it; ++it) {
+    for (int k = 0; k < D_x.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(D_x, k); it; ++it) {
             grad[it.row()] += Af(k, k) * it.value();
         }
     }
 
     // Accumulate the gradients from Dy, offset by num_vertices for the y-component
-    for (int k = 0; k < Dy.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(Dy, k); it; ++it) {
+    for (int k = 0; k < D_y.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(D_y, k); it; ++it) {
             grad[it.row() + num_vertices] += Af(k, k) * it.value();
         }
     }
@@ -938,8 +917,9 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
           m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));*/
 }
 
-double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& dk, Triangles& map) {
+double TrianglesMapping::lineSearch(Eigen::VectorXd& xk1, Eigen::VectorXd& dk, Triangles& map) {
     // Line search using Wolfe conditions
+    Eigen::VectorXd xk_current = xk1;
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
@@ -951,19 +931,22 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd
     double alphaTest = 0.99 * alphaMax;
     double alphaStep2 = std::min(1.0, 0.8 * alphaMax);
 
-    Eigen::VectorXd pk = xk_current + alphaStep * dk;
+    // Eigen::VectorXd pk = xk_current + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
 
-    updateUV(map, xk_current);
-    jacobian_rotation_area(map, true);
+    /*updateUV(map, xk_current);
+    jacobian_rotation_area(map, true);*/
+    Eigen::MatrixXd V_new = Eigen::MatrixXd::Zero(num_vertices, dimension);
+    fillUV(V_new, xk_current);
     double ener, new_ener;
-    add_energies_jacobians(ener, true);
+    add_energies_jacobians(ener, V_new, true);
+    new_ener = ener;
     
     // Compute gradient of xk_current
     Eigen::VectorXd grad_xk = Eigen::VectorXd::Zero(xk_current.size());
     // computeGradient(xk_current, grad_xk, map);
 	// computeAnalyticalGradient(xk_current, grad_xk, map);
-    compute_energy_gradient(grad_xk, true, map);
+    // compute_energy_gradient(grad_xk, true, map);
     
     /*for (auto v : map.iter_vertices()) {
         v.pos()[0] = pk(int(v));
@@ -988,7 +971,7 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd
     // Bisection line search with max_iter limit
     double alphaLow = 0.0;
     double alphaHigh = alphaStep;
-    int max_iter = 5;
+    int max_iter = 15;
     int iter = 0;
 
     /*while (iter < max_iter) {
@@ -997,9 +980,10 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd
             alphaStep = (alphaLow + alphaHigh) / 2.0;
             
         } else if (wolfe2()) {
-            updateUV(map, pk);
-            jacobian_rotation_area(map, true);
-            add_energies_jacobians(new_ener, true);
+            //updateUV(map, pk);
+            //jacobian_rotation_area(map, true);
+            fillUV(V_new, xk_current);
+            add_energies_jacobians(new_ener, V_new, true);
             // Compute gradient of pk
             
             // computeGradient(pk, grad_pk, map);
@@ -1024,9 +1008,10 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd
             v.pos()[0] = pk(int(v));
             v.pos()[2] = pk(int(v) + num_vertices);
         }///////
-        updateUV(map, pk);
-        jacobian_rotation_area(map, true);
-        add_energies_jacobians(new_ener, true);
+        //updateUV(map, pk);
+        //jacobian_rotation_area(map, true);
+        fillUV(V_new, xk_current);
+        add_energies_jacobians(new_ener, V_new, true);
 
         // Compute gradient of pk
         // computeGradient(pk, grad_pk, map);
@@ -1037,42 +1022,31 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd
     }*/
 
 
-    while (iter < max_iter) {
+    while (new_ener >= ener && iter < max_iter) {
+        pk = xk_current + alphaStep2 * dk;
+        fillUV(V_new, pk);
+        double current_energy;
+        add_energies_jacobians(current_energy, V_new, true);
+
         if (new_ener > ener) {
-            alphaHigh = alphaStep2;
-            alphaStep2 = (alphaLow + alphaHigh) / 2.0;
+            alphaStep2 /= 2.0;
             
         } else {
-            alphaLow = alphaStep2;
-            alphaStep2 = (alphaLow + alphaHigh) / 2.0;
+            xk_current = pk;
+            new_ener = current_energy;
         }
-
-        pk = xk_current + alphaStep2 * dk;
-
-        // Update pk positions
-        /*for (auto v : map.iter_vertices()) {
-            v.pos()[0] = pk(int(v));
-            v.pos()[2] = pk(int(v) + num_vertices);
-        }*/
-        updateUV(map, pk);
-        jacobian_rotation_area(map, true);
-        add_energies_jacobians(new_ener, true);
-
-        // Compute gradient of pk
-        // computeGradient(pk, grad_pk, map);
-		// computeAnalyticalGradient(pk, grad_pk, map);
-        compute_energy_gradient(grad_pk, true, map);
 
         iter++;
     }
 
 
     return alphaStep2;
+    // return alphaTest;
 }
 
 void TrianglesMapping::nextStep(Triangles& map) {
 	// Perform line search to find step size alpha
-	double alpha = lineSearch(xk_1, dk, map);
+	alpha = lineSearch(xk_1, dk, map);
 
 	// Update the solution xk
 	xk = xk_1 + alpha * dk;
@@ -1649,25 +1623,10 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
     Eigen::MatrixXd F1, F2, F3;
     igl::local_basis(V, F, F1, F2, F3);
-    std::cout << orientation << std::endl;
-    if (strcmp(orientation, "xyz") == 0) {
-        compute_surface_gradient_matrix(V, F, F1, F2, Dx, Dy);
-    }
-    else if (strcmp(orientation, "xzy") == 0) {
-        compute_surface_gradient_matrix(V, F, F1, F3, Dx, Dy);
-    }
-    else if (strcmp(orientation, "yxz") == 0) {
-        compute_surface_gradient_matrix(V, F, F2, F1, Dx, Dy);
-    }
-    else if (strcmp(orientation, "yzx") == 0) {
-        compute_surface_gradient_matrix(V, F, F2, F3, Dx, Dy);
-    }
-    else if (strcmp(orientation, "zxy") == 0) {
-        compute_surface_gradient_matrix(V, F, F3, F1, Dx, Dy);
-    }
-    else if (strcmp(orientation, "zyx") == 0) {
-        compute_surface_gradient_matrix(V, F, F3, F2, Dx, Dy);
-    }
+    compute_surface_gradient_matrix(V, F, F1, F2, D_x, D_y);
+    D_x.makeCompressed();
+    D_y.makeCompressed();
+    D_z.makeCompressed();
 	for (int i = 1; i <= max_iterations; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
         jacobian_rotation_area(mLocGlo, false);
@@ -1747,7 +1706,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         if (timeFile.is_open()) {
             timeFile << totalDuration << "|"; // Log total time
             timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
-            timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "\n";
+            timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "|" << alpha << "\n";
         }
 
 

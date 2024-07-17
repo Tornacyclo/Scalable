@@ -90,16 +90,16 @@ private:
     Eigen::MatrixXd Ri, Ji;
     std::vector<Eigen::Matrix2d> Rot, Jac, Wei;
     Eigen::MatrixXd Af;
-    Eigen::SparseMatrix<double> Dx, Dy;
+    Eigen::SparseMatrix<double> D_x, D_y, D_z;
     double lambda = 1e-4;
     Eigen::VectorXd flattened_weight_matrix;
     Eigen::VectorXd mass;
     double weight_option = 1.0;
     double exponential_factor = 1.0;
     Eigen::VectorXd rhs;
+    double alpha;
     int dimension = 2;
     const char* energy;
-    const char* orientation;
     int max_iterations;
     
     std::chrono::high_resolution_clock::time_point totalStart;
@@ -120,13 +120,13 @@ private:
 				std::vector<int>& ind_flip);
     int flipsCount(Triangles& map);
     void updateUV(Triangles& map, const Eigen::VectorXd& xk);
+    void fillUV(Eigen::MatrixXd& V_new, const Eigen::VectorXd& xk);
     double minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& distance);
     double smallest_position_quadratic_zero(double a, double b, double c);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
-    void add_energies_jacobians(double& norm_arap_e, bool flips_linesearch);
+    void add_energies_jacobians(double& energy_sum, const Eigen::MatrixXd& V_new, bool flips_linesearch);
     void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
-    void computeGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     double lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& dk, Triangles& map);
     void nextStep(Triangles& map);
