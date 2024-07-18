@@ -6,10 +6,6 @@
 
 
 
-// When using Graphite:
-// - For UltiMaille, v.pos()[0] is the x-coordinate, v.pos()[1] is the z-coordinate and v.pos()[2] is the y-coordinate
-// - For libigl, V.col(0) is the x-coordinate, V.col(1) is the z-coordinate and V.col(2) is the y-coordinate
-// For example, in an .obj file, v -1.000000 0.866000 0.000000, the x-coordinate is -1.000000, the z-coordinate is 0.866000 and the y-coordinate is 0.000000
 TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
     const char* name = nullptr;
     int weights = -1;
@@ -478,6 +474,16 @@ void TrianglesMapping::least_squares() {
 		return;
 	}
 
+    uv = V_1.block(0, 0, V_1.rows(), 2);
+
+    for (int i = 0; i < dimension; i++) {
+        uv.col(i) = xk.block(i * num_vertices, 0, num_vertices, 1);
+    }
+
+    std::cout << "uv: " << std::endl << uv << std::endl;
+
+    distance = uv - V_1.block(0, 0, V_1.rows(), 2);
+
 	// Use an iterative solver
 	/*Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver; // ConjugateGradient solver for symmetric positive definite matrices
     // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver; // BiCGSTAB solver for square matrices	
@@ -536,7 +542,7 @@ void TrianglesMapping::least_squares() {
         return;
     }*/
 
-	dk = xk - uv_flat_1;
+	// dk = xk - uv_flat_1;
 	// std::cout << "Distance dk:" << std::endl << V_1(5, 1) << std::endl;
     dk = xk - xk_1;
 	// std::cout << "Distance dk:" << std::endl << xk_1(5 + num_vertices) << std::endl;
@@ -610,38 +616,37 @@ double TrianglesMapping::determineAlphaMax(const Eigen::VectorXd& xk, const Eige
 	return alphaMax;
 }
 
- double TrianglesMapping::minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& distance) {
+ double TrianglesMapping::step_singularities(const Eigen::MatrixXi& F, const Eigen::MatrixXd& uv, const Eigen::MatrixXd& d) {
     double maximum_step = INFINITY;
-    // updateUV(map, x);
-    for (auto f : map.iter_facets()) {
-        // Get quadratic coefficients (ax^2 + b^x + c)
-        /*#define U11 f.vertex(0).pos()[0]
-        #define U12 f.vertex(0).pos()[2]
-        #define U21 f.vertex(1).pos()[0]
-        #define U22 f.vertex(1).pos()[2]
-        #define U31 f.vertex(2).pos()[0]
-        #define U32 f.vertex(2).pos()[2]*/
-        #define U11 current(int(f.vertex(0)))
-        #define U12 current(int(f.vertex(0)) + num_vertices)
-        #define U21 current(int(f.vertex(1)))
-        #define U22 current(int(f.vertex(1)) + num_vertices)
-        #define U31 current(int(f.vertex(2)))
-        #define U32 current(int(f.vertex(2)) + num_vertices)
+    for (int f = 0; f < F.rows(); f++) {
+        // Get quadratic coefficients (ax^2 + bx + c)
 
-        #define V11 distance(int(f.vertex(0)))
-        #define V12 distance(int(f.vertex(0)) + num_vertices)
-        #define V21 distance(int(f.vertex(1)))
-        #define V22 distance(int(f.vertex(1)) + num_vertices)
-        #define V31 distance(int(f.vertex(2)))
-        #define V32 distance(int(f.vertex(2)) + num_vertices)
+        int v1 = F(f, 0); int v2 = F(f, 1); int v3 = F(f, 2);
+
+        const double& U11 = uv(v1, 0);
+        const double& U12 = uv(v1, 1);
+        const double& U21 = uv(v2, 0);
+        const double& U22 = uv(v2, 1);
+        const double& U31 = uv(v3, 0);
+        const double& U32 = uv(v3, 1);
+
+        const double& V11 = d(v1, 0);
+        const double& V12 = d(v1, 1);
+        const double& V21 = d(v2, 0);
+        const double& V22 = d(v2, 1);
+        const double& V31 = d(v3, 0);
+        const double& V32 = d(v3, 1);
         
         
         double a = V11*V22 - V12*V21 - V11*V32 + V12*V31 + V21*V32 - V22*V31;
         double b = U11*V22 - U12*V21 - U21*V12 + U22*V11 - U11*V32 + U12*V31 + U31*V12 - U32*V11 + U21*V32 - U22*V31 - U31*V22 + U32*V21;
         double c = U11*U22 - U12*U21 - U11*U32 + U12*U31 + U21*U32 - U22*U31;
-
+        
         double minimum_positive_root = smallest_position_quadratic_zero(a, b, c);
+        std::cout << "Minimum positive root: " << minimum_positive_root << std::endl;
+        std::cout << "Maximum step: " << maximum_step << std::endl;
         maximum_step = std::min(maximum_step, minimum_positive_root);
+        std::cout << "Maximum step: " << maximum_step << std::endl;
     }
 
     return maximum_step;
@@ -917,29 +922,34 @@ void TrianglesMapping::computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::Vect
           m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));*/
 }
 
-double TrianglesMapping::lineSearch(Eigen::VectorXd& xk1, Eigen::VectorXd& dk, Triangles& map) {
+double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd& dk_current, Triangles& map) {
     // Line search using Wolfe conditions
-    Eigen::VectorXd xk_current = xk1;
     double c1 = 1e-4; // 1e-5
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
-    double alphaMax = minimum_step_singularities(map, xk_current, dk);
-    // double alphaMax = determineAlphaMax(xk_current, dk, map);
+    double alphaMax = step_singularities(F_1, xk_current, dk_current);
     
     double alphaStep = 0.99 * alphaMax;
     alphaStep = std::min(1.0, 0.8 * alphaMax);
     double alphaTest = 0.99 * alphaMax;
-    double alphaStep2 = std::min(1.0, 0.8 * alphaMax);
+    double alphaBisectionMethod = std::min(1.0, 0.8 * alphaMax);
 
-    // Eigen::VectorXd pk = xk_current + alphaStep * dk;
+    // pk = xk_current + alphaStep * dk;
     std::cout << "alphaStep: " << alphaStep << std::endl;
 
     /*updateUV(map, xk_current);
     jacobian_rotation_area(map, true);*/
-    Eigen::MatrixXd V_new = Eigen::MatrixXd::Zero(num_vertices, dimension);
-    fillUV(V_new, xk_current);
+    /*Eigen::MatrixXd V_old = Eigen::MatrixXd::Zero(num_vertices, dimension);
+    Eigen::MatrixXd V_dk = Eigen::MatrixXd::Zero(num_vertices, dimension);
+    fillUV(V_old, xk_current);
+    fillUV(V_dk, dk);*/
+    
+    Eigen::MatrixXd V_old = xk_current;
+    // Eigen::MatrixXd V_dk = dk_current;
     double ener, new_ener;
-    add_energies_jacobians(ener, V_new, true);
+    double current_energy;
+    add_energies_jacobians(ener, V_old, true);
+    std::cout << "Initial energy: " << ener << std::endl;
     new_ener = ener;
     
     // Compute gradient of xk_current
@@ -1020,19 +1030,16 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk1, Eigen::VectorXd& dk, T
 
         iter++;
     }*/
-
+   std::cout << "Initial energy: " << ener << std::endl;
 
     while (new_ener >= ener && iter < max_iter) {
-        pk = xk_current + alphaStep2 * dk;
-        fillUV(V_new, pk);
-        double current_energy;
+        Eigen::MatrixXd V_new = V_old + alphaBisectionMethod * dk_current;
         add_energies_jacobians(current_energy, V_new, true);
 
         if (new_ener > ener) {
-            alphaStep2 /= 2.0;
-            
+            alphaBisectionMethod /= 2.0;
         } else {
-            xk_current = pk;
+            V_old = V_new;
             new_ener = current_energy;
         }
 
@@ -1040,14 +1047,13 @@ double TrianglesMapping::lineSearch(Eigen::VectorXd& xk1, Eigen::VectorXd& dk, T
     }
 
 
-    return alphaStep2;
-    // return alphaTest;
+    return alphaBisectionMethod;
 }
 
 void TrianglesMapping::nextStep(Triangles& map) {
 	// Perform line search to find step size alpha
-	alpha = lineSearch(xk_1, dk, map);
-
+	// alpha = lineSearch(V_1, distance, map);
+    alpha = igl::flip_avoiding::compute_max_step_from_singularities(uv, F_1, distance);
 	// Update the solution xk
 	xk = xk_1 + alpha * dk;
 

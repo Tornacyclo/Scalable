@@ -23,6 +23,7 @@
 #include "igl/local_basis.h"
 #include "igl/read_triangle_mesh.h"
 #include "igl/polar_svd.h"
+#include "igl/flip_avoiding_line_search.h"
 
 
 
@@ -47,10 +48,6 @@ using namespace UM;
 
 
 
-// When using Graphite:
-// - For UltiMaille, v.pos()[0] is the x-coordinate, v.pos()[1] is the z-coordinate and v.pos()[2] is the y-coordinate
-// - For libigl, V.col(0) is the x-coordinate, V.col(1) is the z-coordinate and V.col(2) is the y-coordinate
-// For example, in an .obj file, v -1.000000 0.866000 0.000000, the x-coordinate is -1.000000, the z-coordinate is 0.866000 and the y-coordinate is 0.000000
 class TrianglesMapping {
 public:
     TrianglesMapping(const int acount, char** avariable);
@@ -63,6 +60,10 @@ public:
     Eigen::VectorXd xk_1;
     Eigen::VectorXd pk;
     Eigen::VectorXd dk;
+
+    Eigen::MatrixXd uv;
+    Eigen::MatrixXd uv_1;
+    Eigen::MatrixXd distance;
 
 private:
     Triangles mOri;
@@ -121,14 +122,14 @@ private:
     int flipsCount(Triangles& map);
     void updateUV(Triangles& map, const Eigen::VectorXd& xk);
     void fillUV(Eigen::MatrixXd& V_new, const Eigen::VectorXd& xk);
-    double minimum_step_singularities(Triangles& map, Eigen::VectorXd& current, Eigen::VectorXd& distance);
+    double step_singularities(const Eigen::MatrixXi& F, const Eigen::MatrixXd& uv, const Eigen::MatrixXd& d);
     double smallest_position_quadratic_zero(double a, double b, double c);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
     void add_energies_jacobians(double& energy_sum, const Eigen::MatrixXd& V_new, bool flips_linesearch);
     void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
     void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
-    double lineSearch(Eigen::VectorXd& xk_current, Eigen::VectorXd& dk, Triangles& map);
+    double lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd& dk, Triangles& map);
     void nextStep(Triangles& map);
 };
 
