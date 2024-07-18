@@ -24,6 +24,8 @@
 #include "igl/read_triangle_mesh.h"
 #include "igl/polar_svd.h"
 #include "igl/flip_avoiding_line_search.h"
+#include <igl/boundary_loop.h>
+#include <igl/map_vertices_to_circle.h>
 
 
 
@@ -99,6 +101,8 @@ private:
     double exponential_factor = 1.0;
     Eigen::VectorXd rhs;
     double alpha;
+    Eigen::VectorXd M;
+    double mesh_area;
     int dimension = 2;
     const char* energy;
     int max_iterations;
@@ -112,6 +116,7 @@ private:
     double triangle_aspect_ratio_2d(const vec2& v0, const vec2& v1, const vec2& v2);
     void reference_mesh(Triangles& map);
     void bound_vertices_circle_normalized(Triangles& map);
+    void map_vertices_to_circle_area_normalized(Triangles& map, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXi& bnd, Eigen::MatrixXd& UV);
     void Tut63(const char* name, int weights);
     std::pair<Eigen::Vector3d, Eigen::Vector3d> compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
     void jacobian_rotation_area(Triangles& map, bool lineSearch);
@@ -126,7 +131,7 @@ private:
     double smallest_position_quadratic_zero(double a, double b, double c);
     double determineAlphaMax(const Eigen::VectorXd& xk, const Eigen::VectorXd& dk,
 											Triangles& map);
-    void add_energies_jacobians(double& energy_sum, const Eigen::MatrixXd& V_new, bool flips_linesearch);
+    double add_energies_jacobians(Eigen::MatrixXd& V_new, bool flips_linesearch);
     void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
     void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     double lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd& dk, Triangles& map);

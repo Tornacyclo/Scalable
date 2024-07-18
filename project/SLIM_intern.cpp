@@ -44,7 +44,7 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
     }
 
     if (weights == -1) {
-        weights = 2;
+        weights = 1;
     }
     
     if (max_iterations == -1) {
@@ -463,8 +463,8 @@ void TrianglesMapping::least_squares() {
     }
     
     rhs.resize(dimension * num_vertices);
-    // rhs = (At * flattened_weight_matrix.asDiagonal() * b + lambda * uv_flat_1);
-    rhs = (At * flattened_weight_matrix.asDiagonal() * b + lambda * xk_1);
+    rhs = (At * flattened_weight_matrix.asDiagonal() * b + lambda * uv_flat_1);
+    // rhs = (At * flattened_weight_matrix.asDiagonal() * b + lambda * xk_1);
 
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
     xk = solver.compute(L).solve(rhs);
@@ -480,7 +480,7 @@ void TrianglesMapping::least_squares() {
         uv.col(i) = xk.block(i * num_vertices, 0, num_vertices, 1);
     }
 
-    std::cout << "uv: " << std::endl << uv << std::endl;
+    // std::cout << "uv: " << std::endl << uv << std::endl;
 
     distance = uv - V_1.block(0, 0, V_1.rows(), 2);
 
@@ -721,9 +721,9 @@ double TrianglesMapping::smallest_position_quadratic_zero(double a, double b, do
     }
 }
 
-void TrianglesMapping::add_energies_jacobians(double& energy_sum, const Eigen::MatrixXd& V_new, bool flips_linesearch) {
+double TrianglesMapping::add_energies_jacobians(Eigen::MatrixXd& V_new, bool flips_linesearch) {
 	// schaeffer_e = log_e = conf_e = amips = 0;
-	energy_sum = 0;
+	double energy_sum = 0;
     distortion_energy.clear();
 
     Ji = Eigen::MatrixXd::Zero(num_triangles, dimension * dimension);
@@ -749,19 +749,20 @@ void TrianglesMapping::add_energies_jacobians(double& energy_sum, const Eigen::M
 		if (flips_linesearch) {
             if (strcmp(energy, "ARAP") == 0) {
                 mini_energy = pow(s1 - 1, 2) + pow(s2 - 1, 2);
-                energy_sum += Af(i, i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
+                energy_sum += M(i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
             }
             else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
                 mini_energy = pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2);
-                energy_sum += Af(i, i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
+                energy_sum += M(i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
+                std::cout << "energy_sum: " << energy_sum << std::endl;
             }
             else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
                 mini_energy = exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
-                energy_sum += Af(i, i) * exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
+                energy_sum += M(i) * exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
             }
             else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
                 mini_energy = pow(log(s1), 2) + pow(log(s2), 2);
-                energy_sum += Af(i, i) * (pow(log(s1), 2) + pow(log(s2), 2));
+                energy_sum += M(i) * (pow(log(s1), 2) + pow(log(s2), 2));
             }
             else if (strcmp(energy, "AMIPS") == 0) {
                 //
@@ -775,28 +776,29 @@ void TrianglesMapping::add_energies_jacobians(double& energy_sum, const Eigen::M
             else if (strcmp(energy, "UNTANGLE-2D") == 0) {
                 //
             }
-			// schaeffer_energy += Af(i, i) * (pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2));
-			// logarithm_energy += Af(i, i) * (pow(log(s1),2) + pow(log(s2),2));
+			// schaeffer_energy += M(i) * (pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2));
+			// logarithm_energy += M(i) * (pow(log(s1),2) + pow(log(s2),2));
 			// double sigma_geo_avg = sqrt(s1*s2);
-			// conformal_energy += Af(i, i) * (pow(log(s1/sigma_geo_avg),2) + pow(log(s2/sigma_geo_avg),2));
-			// conformal_energy += Af(i, i) * ( (pow(s1,2)+pow(s2,2))/(2*s1*s2) );
-			// norm_arap_energy += Af(i, i) * (pow(s1-1, 2) + pow(s2-1, 2));
-			// amips +=  Af(i, i) * exp(exponential_factor* (  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) );
-			// exponential_symmetricDirichlet += Af(i, i) * exp(exponential_factor*(pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2)));
-			// amips +=  Af(i, i) * exp(  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) ;
+			// conformal_energy += M(i) * (pow(log(s1/sigma_geo_avg),2) + pow(log(s2/sigma_geo_avg),2));
+			// conformal_energy += M(i) * ( (pow(s1,2)+pow(s2,2))/(2*s1*s2) );
+			// norm_arap_energy += M(i) * (pow(s1-1, 2) + pow(s2-1, 2));
+			// amips +=  M(i) * exp(exponential_factor* (  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) );
+			// exponential_symmetricDirichlet += M(i) * exp(exponential_factor*(pow(s1,2) +pow(s1,-2) + pow(s2,2) + pow(s2,-2)));
+			// amips +=  M(i) * exp(  0.5*( (s1/s2) +(s2/s1) ) + 0.25*( (s1*s2) + (1./(s1*s2)) )  ) ;
 		} else {
 			if (ui.determinant() * vi.determinant() > 0) {
-			energy_sum += Af(i, i) * (pow(s1-1,2) + pow(s2-1,2));
+			energy_sum += M(i) * (pow(s1-1,2) + pow(s2-1,2));
 			} else {
 			// it is the distance form the flipped thing, this is slow, usefull only for debugging normal arap
 			vi.col(1) *= -1;
-			energy_sum += Af(i, i) * (Jac[i]-ui*vi.transpose()).squaredNorm();
+			energy_sum += M(i) * (Jac[i]-ui*vi.transpose()).squaredNorm();
 			}
 		}
-        // std::cout << "mini_energy: " << Af(i, i) << std::endl;
+        // std::cout << "mini_energy: " << mini_energy << std::endl;
 
         distortion_energy.push_back(mini_energy);
 	}
+    return energy_sum;
 }
 
 void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map) {
@@ -847,16 +849,16 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
             Eigen::Matrix2d dJ = grad_J * (Jac[i] - R_i);
 
             /*if (strcmp(energy, "ARAP") == 0) {
-                energy_sum += Af(i, i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
+                energy_sum += M(i) * (pow(s1 - 1, 2) + pow(s2 - 1, 2));
             }
             else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
-                energy_sum += Af(i, i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
+                energy_sum += M(i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
             }
             else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
-                energy_sum += Af(i, i) * exp(s.exp_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
+                energy_sum += M(i) * exp(s.exp_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
             }
             else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
-                energy_sum += Af(i, i) * (pow(log(s1), 2) + pow(log(s2), 2));
+                energy_sum += M(i) * (pow(log(s1), 2) + pow(log(s2), 2));
             }
             else if (strcmp(energy, "AMIPS") == 0) {
                 //
@@ -872,7 +874,7 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
             }*/
 
             for (int k = 0; k < 2; ++k) {
-                grad(v_ind + k * num_vertices) += 2 * Af(i, i) * dJ(k, 0) * (s1 - 1) + dJ(k, 1) * (s2 - 1);
+                grad(v_ind + k * num_vertices) += 2 * M(i) * dJ(k, 0) * (s1 - 1) + dJ(k, 1) * (s2 - 1);
             }
 
             if (flips_linesearch && Ui.determinant() * Vi.determinant() <= 0) {
@@ -881,7 +883,7 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
                 Eigen::Matrix2d dJ_flipped = grad_J * (Jac[i] - flip_R_i);
 
                 for (int k = 0; k < 2; ++k) {
-                    grad(v_ind + k * num_vertices) += Af(i, i) * (dJ_flipped(k, 0) * (s1 - 1) + dJ_flipped(k, 1) * (s2 - 1));
+                    grad(v_ind + k * num_vertices) += M(i) * (dJ_flipped(k, 0) * (s1 - 1) + dJ_flipped(k, 1) * (s2 - 1));
                 }
             }
         }
@@ -948,7 +950,7 @@ double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd
     // Eigen::MatrixXd V_dk = dk_current;
     double ener, new_ener;
     double current_energy;
-    add_energies_jacobians(ener, V_old, true);
+    ener = add_energies_jacobians(V_old, true);
     std::cout << "Initial energy: " << ener << std::endl;
     new_ener = ener;
     
@@ -1034,7 +1036,7 @@ double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd
 
     while (new_ener >= ener && iter < max_iter) {
         Eigen::MatrixXd V_new = V_old + alphaBisectionMethod * dk_current;
-        add_energies_jacobians(current_energy, V_new, true);
+        new_ener = add_energies_jacobians(V_new, true);
 
         if (new_ener > ener) {
             alphaBisectionMethod /= 2.0;
@@ -1053,18 +1055,40 @@ double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd
 void TrianglesMapping::nextStep(Triangles& map) {
 	// Perform line search to find step size alpha
 	// alpha = lineSearch(V_1, distance, map);
-    alpha = igl::flip_avoiding::compute_max_step_from_singularities(uv, F_1, distance);
+    // alpha = igl::flip_avoiding::compute_max_step_from_singularities(uv, F, distance);
+    Eigen::MatrixXd uv_old = V_1.block(0, 0, V_1.rows(), 2);
+    double ener = add_energies_jacobians(uv_old, true);
+    std::cout << "Energy: " << ener << std::endl;
+    double old_energy = ener;
+
+    std::function<double(Eigen::MatrixXd &)> compute_energy = [&](Eigen::MatrixXd &V_vertices) {
+        return add_energies_jacobians(V_vertices, true);
+    };
+
+    ener = igl::flip_avoiding_line_search(F, uv_old, uv, compute_energy, ener * mesh_area) / mesh_area;
+    std::cout << "Energy: " << ener << std::endl;
 	// Update the solution xk
-	xk = xk_1 + alpha * dk;
+	// xk = xk_1 + alpha * dk;
 
 	// std::cout << "The new solution is:\n" << xk << std::endl;
-	std::cout << "Step size alpha: " << alpha << std::endl;
+	// std::cout << "Step size alpha: " << alpha << std::endl;
 
-	/*for (auto v : mLocGlo.iter_vertices()) {
-		v.pos()[0] = xk(int(v));
-		v.pos()[2] = xk(int(v) + num_vertices);
+    std::cout << "V_1(0):\n" << V_1(0) << std::endl;
+	std::cout << "V_1(1):\n" << V_1(1) << std::endl;
+
+    for (int i = 0; i < V_1.rows(); i++) {
+        V_1(i, 0) = uv_old(i, 0);
+        V_1(i, 1) = uv_old(i, 1);
+        
+        map.points[i][0] = V_1(i, 0);
+        map.points[i][1] = V_1(i, 1);
+    }
+
+	/*for (auto v : map.iter_vertices()) {
+		v.pos()[0] = uv_old(int(v), 0);
+		v.pos()[1] = uv_old(int(v), 1);
 	}*/
-    updateUV(map, xk);
+    // updateUV(map, xk);
 }
 
 void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {
@@ -1082,6 +1106,47 @@ void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {
         map.points[v][0] = radius * cos(frac);
         map.points[v][1] = radius * sin(frac);
         len_i++;
+    }
+}
+
+void TrianglesMapping::map_vertices_to_circle_area_normalized(Triangles& map, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXi& bnd, Eigen::MatrixXd& UV) {
+    Eigen::VectorXd dblArea_orig;
+    igl::doublearea(V, F, dblArea_orig);
+    double area = dblArea_orig.sum() / 2;
+    double radius = sqrt(area / (M_PI)); 
+
+    // Get sorted list of boundary vertices
+    std::vector<int> interior, map_ij;
+    map_ij.resize(V.rows());
+    interior.reserve(V.rows() - bnd.size());
+
+    std::vector<bool> isOnBnd(V.rows(), false);
+    for (int i = 0; i < bnd.size(); i++) {
+        isOnBnd[bnd[i]] = true;
+        map_ij[bnd[i]] = i;
+    }
+
+    for (int i = 0; i < (int)isOnBnd.size(); i++) {
+        if (!isOnBnd[i]) {
+                map_ij[i] = interior.size();
+                interior.push_back(i);
+            }
+    }
+
+    std::vector<double> len(bnd.size());
+    len[0] = 0.;
+
+    for (int i = 1; i < bnd.size(); i++) {
+        len[i] = len[i-1] + (V.row(bnd[i-1]) - V.row(bnd[i])).norm();
+    }
+    double total_len = len[len.size()-1] + (V.row(bnd[0]) - V.row(bnd[bnd.size()-1])).norm();
+
+    UV.resize(bnd.size(), 2);
+    for (int i = 0; i < bnd.size(); i++) {
+        double frac = len[i] * (2. * M_PI) / total_len;
+        UV.row(map_ij[bnd[i]]) << radius * cos(frac), radius * sin(frac);
+        map.points[bnd[i]][0] = radius * cos(frac);
+        map.points[bnd[i]][1] = radius * sin(frac);
     }
 }
 
@@ -1170,6 +1235,9 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     }
 
     igl::read_triangle_mesh(name, V, F);
+    igl::doublearea(V, F, M);
+    M /= 2.;
+    mesh_area = M.sum();
 
     /*int fixed = 0;
     Eigen::VectorXd x_B_ = Eigen::VectorXd::Zero(nverts);
@@ -1343,7 +1411,14 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 
     Eigen::MatrixXd lhsF = Eigen::MatrixXd::Zero(nverts, 2);
 
-    bound_vertices_circle_normalized(mTut);
+    Eigen::VectorXi b;
+    igl::boundary_loop(F, b);
+    Eigen::MatrixXd bc;
+    map_vertices_to_circle_area_normalized(mTut, V, F, b, bc);
+    std::cout << (bc.rows() == bound_sorted.size()) << std::endl;
+    // exit(EXIT_FAILURE);
+
+    // bound_vertices_circle_normalized(mTut);
 
     int vert = 0;
     int bb = 0;
@@ -1353,9 +1428,13 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
         if (bound.contains(vi)) {
             x_B(bb, 0) = mTut.points[i][0];
             x_B(bb, 1) = mTut.points[i][1];
-
             lhsF(bb, 0) = mTut.points[i][0];
             lhsF(bb, 1) = mTut.points[i][1];
+
+            /*x_B(bb, 0) = bc(b[bb], 0);
+            x_B(bb, 1) = bc(b[bb], 1);
+            lhsF(bb, 0) = bc(b[bb], 0);
+            lhsF(bb, 1) = bc(b[bb], 1);*/
 
             bb++;
         } else {
@@ -1507,6 +1586,7 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 
     // std::cout << x_I_full << std::endl;
     EigenMap = x_I_full;
+    V_1 = V;
 
     for (int plan : plane) {
         int re = x_I_(plan);
@@ -1514,12 +1594,32 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 	    // mTut.points[plan][2] = x_I(re, 1);
 
         mTut.points[plan][0] = x_I_full(re + fixed, 0);
-        mTut.points[plan][2] = seaLevel;
         mTut.points[plan][1] = x_I_full(re + fixed, 1);
+        mTut.points[plan][2] = seaLevel;
+
+        V_1(plan, 0) = x_I_full(re + fixed, 0);
+        V_1(plan, 1) = x_I_full(re + fixed, 1);
+        V_1(plan, 2) = seaLevel;
     }
+
     for (int blad : blade) {
         mTut.points[blad][2] = seaLevel;
+
+        V_1(blad, 0) = mTut.points[blad][0];
+        V_1(blad, 1) = mTut.points[blad][1];
+        V_1(blad, 2) = seaLevel;
     }
+
+    /*for (int i = 0; i < mTut.nverts(); i++) {
+        V_1(i, 0) = mTut.points[i][0];
+        V_1(i, 1) = mTut.points[i][1];
+        V_1(i, 2) = seaLevel;
+    }*/
+
+
+    /*std::cout << V(15, 0) << "  " << V(15, 1) << std::endl;
+    std::cout << mOri.points[15][0] << "  " << mOri.points[15][1] << std::endl;
+    exit(EXIT_FAILURE);*/
 
     // for (int plan : plane) {
     //     int re = x_I_(plan);
@@ -1587,7 +1687,7 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 
     write_by_extension(output_name_geo, mTut, { {}, {{"AreaRatio", fa.ptr}}, {{"Halfedge", he.ptr}} });
     write_by_extension(output_name_obj, mTut);
-    igl::read_triangle_mesh(output_name_obj, V_1, F_1);
+    // igl::read_triangle_mesh(output_name_obj, V_1, F_1);
 
     // #ifdef _WIN32
     //     // Open the generated mesh with Graphite
@@ -1712,13 +1812,13 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         if (timeFile.is_open()) {
             timeFile << totalDuration << "|"; // Log total time
             timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
-            timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "|" << alpha << "\n";
+            timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "\n";
         }
 
 
         write_by_extension(output_name_geo, mLocGlo, { {}, {{"Energy", fa.ptr}, {"AreaRatio", fa_a.ptr}}, {{"Halfedge", he.ptr}} });
         write_by_extension(output_name_obj, mLocGlo);
-        igl::read_triangle_mesh(output_name_obj, V_1, F_1);
+        // igl::read_triangle_mesh(output_name_obj, V_1, F_1);
         std::cout << "write_by_extension(output_name_geo, mLocGlo);" << std::endl;
         // #ifdef _WIN32
         //     int result = system((getGraphitePath() + " " + output_name_geo).c_str());
