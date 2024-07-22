@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-mesh_files=("project/mesh_test/hemisphere-quad-tri.obj" "project/mesh_test/hemisphere-cut.obj" "project/mesh_test/camelhead-cut.obj" "project/mesh_test/cowhead-quad-tri.obj")
+mesh_files=("project/mesh_test/hemisphere-quad-tri.obj" "project/mesh_test/hemisphere-cut.obj" "project/mesh_test/camelhead-cut.obj")
 iterations=(20)
 methods=("ARAP" "SYMMETRIC-DIRICHLET")
 
