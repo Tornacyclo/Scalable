@@ -118,13 +118,8 @@ private:
     void bound_vertices_circle_normalized(Triangles& map);
     void map_vertices_to_circle_area_normalized(Triangles& map, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXi& bnd, Eigen::MatrixXd& UV);
     void Tut63(const char* name, int weights);
-    std::pair<Eigen::Vector3d, Eigen::Vector3d> compute_gradients(double u1, double v1, double u2, double v2, double u3, double v3);
     void jacobian_rotation_area(Triangles& map, bool lineSearch);
-    void update_weights();
     void least_squares();
-    void verify_flips(Triangles& map,
-				std::vector<int>& ind_flip);
-    int flipsCount(Triangles& map);
     void updateUV(Triangles& map, const Eigen::VectorXd& xk);
     void fillUV(Eigen::MatrixXd& V_new, const Eigen::VectorXd& xk);
     double step_singularities(const Eigen::MatrixXi& F, const Eigen::MatrixXd& uv, const Eigen::MatrixXd& d);
@@ -133,7 +128,6 @@ private:
 											Triangles& map);
     double add_energies_jacobians(Eigen::MatrixXd& V_new, bool flips_linesearch);
     void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
-    void computeAnalyticalGradient(Eigen::VectorXd& x, Eigen::VectorXd& grad, Triangles& map);
     double lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd& dk, Triangles& map);
     void nextStep(Triangles& map);
 };
