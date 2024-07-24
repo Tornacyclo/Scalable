@@ -344,9 +344,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
 }
 
 void TrianglesMapping::least_squares() {
-	// Eigen::SparseMatrix<double> A(4 * num_triangles, 2 * num_vertices);
     Eigen::SparseMatrix<double> A(dimension * dimension * num_triangles, dimension * num_vertices);
-	//  Eigen::VectorXd b = Eigen::VectorXd::Zero(4 * num_triangles);
     Eigen::VectorXd b(dimension * dimension * num_triangles);
     b.setZero();
     
@@ -361,8 +359,6 @@ void TrianglesMapping::least_squares() {
 	Eigen::VectorXd R12 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R21 = Eigen::VectorXd::Zero(num_triangles);
 	Eigen::VectorXd R22 = Eigen::VectorXd::Zero(num_triangles);
-
-    std::cout << "Yo long time no see" << std::endl;
 
 	for (int i = 0; i < num_triangles; ++i) {
 		W11_diag(i) = Wei[i](0, 0);
@@ -648,7 +644,6 @@ double TrianglesMapping::add_energies_jacobians(Eigen::MatrixXd& V_new, bool fli
             else if (strcmp(energy, "SYMMETRIC-DIRICHLET") == 0) {
                 mini_energy = pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2);
                 energy_sum += M(i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
-                std::cout << "energy_sum: " << energy_sum << std::endl;
             }
             else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
                 mini_energy = exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
@@ -1475,7 +1470,6 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
 
 void TrianglesMapping::LocalGlobalParametrization(const char* map) {
     read_by_extension(map, mLocGlo);
-    std::cout << "Yo long time no see\n" << max_iterations << std::endl;
     mLocGlo.connect();
 
     std::filesystem::path filepath = map;
