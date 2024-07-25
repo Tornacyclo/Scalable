@@ -901,8 +901,8 @@ void TrianglesMapping::nextStep(Triangles& map) {
         return add_energies_jacobians(V_vertices, true);
     };
 
-    ener = igl::flip_avoiding_line_search(F, uv_old, uv, compute_energy, ener * mesh_area) / mesh_area;
-    std::cout << "Energy: " << ener << std::endl;
+    energumene = igl::flip_avoiding_line_search(F, uv_old, uv, compute_energy, ener * mesh_area) / mesh_area;
+    std::cout << "Energy: " << energumene << std::endl;
 	// Update the solution xk
 	// xk = xk_1 + alpha * dk;
 
@@ -1581,9 +1581,14 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         if (timeFile.is_open()) {
             timeFile << totalDuration << "|"; // Log total time
             timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
-            timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "|" << alpha << "\n";
+            timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "|" << alpha << "|" << energumene;
+            if (strcmp(energy, "UNTANGLE-2D") == 0) {
+                timeFile << "|" << epsilon << "|" << lambda_polyconvex << "\n";
+            }
+            else {
+                timeFile << "\n";
+            }
         }
-
 
         write_by_extension(output_name_geo, mLocGlo, { {}, {{"Energy", fa.ptr}, {"AreaRatio", fa_a.ptr}}, {{"Halfedge", he.ptr}} });
         write_by_extension(output_name_obj, mLocGlo);

@@ -98,11 +98,14 @@ private:
     Eigen::VectorXd flattened_weight_matrix;
     Eigen::VectorXd mass;
     double weight_option = 1.0;
-    double exponential_factor = 1.0;
+    double exponential_factor = 1e-6;
     Eigen::VectorXd rhs;
     double alpha;
     Eigen::VectorXd M;
     double mesh_area;
+    double energumene;
+    double lambda_polyconvex = 1;
+    double epsilon;
     int dimension = 2;
     const char* energy;
     int max_iterations;
