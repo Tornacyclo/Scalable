@@ -99,7 +99,7 @@ private:
     Eigen::VectorXd mass;
     double weight_option = 1.0;
     double exponential_factor_1 = 1e-4;
-    double exponential_factor_2 = 1e-8;
+    double exponential_factor_2 = 1e-12;
     Eigen::VectorXd rhs;
     double alpha;
     Eigen::VectorXd M;
