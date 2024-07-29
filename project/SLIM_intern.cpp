@@ -281,11 +281,11 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
             else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
                 double s1_g = 2 * (s1 - pow(s1, -3));
                 double s2_g = 2 * (s2 - pow(s2, -3));
-                double inside_exponential = exponential_factor_1 * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
+                double inside_exponential = exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
                 double exponential_term = exp(inside_exponential);
 
-                s1_g *= exponential_term * exponential_factor_1;
-                s2_g *= exponential_term * exponential_factor_1;
+                s1_g *= exponential_term * exponential_factor;
+                s2_g *= exponential_term * exponential_factor;
 
                 m_sing_new << sqrt(s1_g / (2 * (s1 - 1))), sqrt(s2_g / (2 * (s2 - 1)));
             }
@@ -300,13 +300,11 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                 double s2_g = 1;
                 double s1_lambda = sqrt((2 * pow(s2, 2) + 1) / (pow(s2, 2) + 2));
                 double s2_lambda = sqrt((2 * pow(s1, 2) + 1) / (pow(s1, 2) + 2));
-                double inside_exponential_1 = exponential_factor_2 * (0.25 * (s2 - (1. / (s2 * pow(s1, 2)))) + 0.5 * ((1. / s2) - (s2 / pow(s1, 2))));
-                double exponential_term_1 = exp(inside_exponential_1);
-                double inside_exponential_2 = exponential_factor_2 * (0.25 * (s1 - (1. / (s1 * pow(s2, 2)))) + 0.5 * ((1. / s1) - (s1 / pow(s2, 2))));
-                double exponential_term_2 = exp(inside_exponential_2);
+                double term_1 = 0.25 * (s2 - (1. / (s2 * pow(s1, 2)))) + 0.5 * ((1. / s2) - (s2 / pow(s1, 2)));
+                double term_2 = 0.25 * (s1 - (1. / (s1 * pow(s2, 2)))) + 0.5 * ((1. / s1) - (s1 / pow(s2, 2)));
 
-                s1_g *= exponential_term_1 * exponential_factor_2;
-                s2_g *= exponential_term_2 * exponential_factor_2;
+                s1_g = term_1;
+                s2_g = term_2;
 
                 m_sing_new << sqrt(s1_g / (2 * (s1 - s1_lambda))), sqrt(s2_g / (2 * (s2 - s2_lambda)));
 
@@ -646,16 +644,16 @@ double TrianglesMapping::add_energies_jacobians(Eigen::MatrixXd& V_new, bool fli
                 energy_sum += M(i) * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2));
             }
             else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
-                mini_energy = exp(exponential_factor_1 * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
-                energy_sum += M(i) * exp(exponential_factor_1 * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
+                mini_energy = exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
+                energy_sum += M(i) * exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
             }
             else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
                 mini_energy = pow(log(s1), 2) + pow(log(s2), 2);
                 energy_sum += M(i) * (pow(log(s1), 2) + pow(log(s2), 2));
             }
             else if (strcmp(energy, "AMIPS") == 0) {
-                mini_energy = exp(exponential_factor_2 * (0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)))));
-                energy_sum += M(i) * exp(exponential_factor_2 * (0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)))));
+                mini_energy = 0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)));
+                energy_sum += M(i) * 0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)));
             }
             else if (strcmp(energy, "CONFORMAL-AMIPS-2D") == 0) {
                 mini_energy = (pow(s1, 2) + pow(s2, 2)) / (s1 * s2);
@@ -737,16 +735,16 @@ void TrianglesMapping::compute_energy_gradient(Eigen::VectorXd& grad, bool flips
                 std::cout << "energy_sum: " << energy_sum << std::endl;
             }
             else if (strcmp(energy, "EXPONENTIAL-SYMMETRIC-DIRICHLET") == 0) {
-                mini_energy = exp(exponential_factor_1 * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
-                energy_sum += M(i) * exp(exponential_factor_1 * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
+                mini_energy = exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
+                energy_sum += M(i) * exp(exponential_factor * (pow(s1, 2) + pow(s1, -2) + pow(s2, 2) + pow(s2, -2)));
             }
             else if (strcmp(energy, "HENCKY-STRAIN") == 0) {
                 mini_energy = pow(log(s1), 2) + pow(log(s2), 2);
                 energy_sum += M(i) * (pow(log(s1), 2) + pow(log(s2), 2));
             }
             else if (strcmp(energy, "AMIPS") == 0) {
-                mini_energy = exp(exponential_factor_2 * (0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)))));
-                energy_sum += M(i) * exp(exponential_factor_2 * (0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)))));
+                mini_energy = 0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)));
+                energy_sum += M(i) * 0.5 * ((s1 / s2) + (s2 / s1)) + 0.25 * ((s1 * s2) + (1. / (s1 * s2)));
             }
             else if (strcmp(energy, "CONFORMAL-AMIPS-2D") == 0) {
                 mini_energy = (pow(s1, 2) + pow(s2, 2)) / (s1 * s2);
