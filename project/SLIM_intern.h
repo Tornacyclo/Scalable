@@ -98,8 +98,8 @@ private:
     Eigen::VectorXd flattened_weight_matrix;
     Eigen::VectorXd mass;
     double weight_option = 1.0;
-    double exponential_factor_1 = 1e-4;
-    double exponential_factor_2 = 1e-12;
+    double exponential_factor_1 = 1e-1;
+    double exponential_factor_2 = 1e-324;
     Eigen::VectorXd rhs;
     double alpha;
     Eigen::VectorXd M;
