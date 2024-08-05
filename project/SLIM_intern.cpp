@@ -888,6 +888,44 @@ double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd
     return alphaBisectionMethod;
 }
 
+void TrianglesMapping::updateEpsilon(map, xk) {
+    double E_prev, E;
+    std::vector<double> trash(X.size());
+    func(X, E_prev, trash);
+
+    LBFGS_Optimizer opt(func);
+    opt.gtol = bfgs_threshold;
+    opt.maxiter = bfgs_maxiter;
+    opt.run(X);
+
+    func(X, E, trash);
+    if (debug > 0) {
+        std::cerr << "E: " << E << " eps: " << eps << " detmin: " << detmin << " ninv: " << ninverted << std::endl;
+    }
+
+    if (0) {
+        double sigma = std::max(1. - E / E_prev, 1e-1);
+        if (detmin >= 0) {
+            eps *= (1 - sigma);
+        } else {
+            eps *= 1 - (sigma * std::sqrt(detmin * detmin + eps * eps)) / (std::abs(detmin) + std::sqrt(detmin * detmin + eps * eps));
+        }
+    } else {
+        double sigma = std::max(1. - E / E_prev, 1e-1);
+        double mu = (1 - sigma) * chi(eps, detmin);
+        if (detmin < mu) {
+            eps = std::max(1e-9, 2 * std::sqrt(mu * (mu - detmin)));
+        } else {
+            eps = 1e-9;
+        }
+    }
+
+    if (detmin > 0 && std::abs(E_prev - E) / E < 1e-5) {
+        return;
+    }
+    return !ninverted;
+}
+
 void TrianglesMapping::nextStep(Triangles& map) {
 	// Perform line search to find step size alpha
 	alpha = lineSearch(V_1, distance, map);
@@ -918,6 +956,8 @@ void TrianglesMapping::nextStep(Triangles& map) {
 		v.pos()[1] = uv_old(int(v), 1);
 	}*/
     // updateUV(map, xk);
+
+    updateEpsilon(map, xk);
 }
 
 void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {

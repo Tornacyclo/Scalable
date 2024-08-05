@@ -106,7 +106,7 @@ private:
     double mesh_area;
     double energumene;
     double lambda_polyconvex = 1;
-    double epsilon;
+    double epsilon = 1;
     int dimension = 2;
     const char* energy;
     int max_iterations;
@@ -133,6 +133,7 @@ private:
     double add_energies_jacobians(Eigen::MatrixXd& V_new, bool flips_linesearch);
     void compute_energy_gradient(Eigen::VectorXd& grad, bool flips_linesearch, Triangles& map);
     double lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd& dk, Triangles& map);
+    void updateEpsilon(map, xk);
     void nextStep(Triangles& map);
 };
 
