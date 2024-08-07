@@ -243,7 +243,7 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
     if (!lineSearch) {Wei.clear();}
 
     if (strcmp(energy, "UNTANGLE-2D") == 0) {
-        if (!E_previous == -1) {
+        if (E_previous != -1) {
             double energy_sum = 0;
 
             Ji = Eigen::MatrixXd::Zero(num_triangles, dimension * dimension);
@@ -383,21 +383,57 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                                 (pow(s2, 2) * pow(s1, 2) + 1) * (s1 + (s2 * pow(s1, 2)) / sqrt(pow(epsilon, 2) + pow(s2, 2) * pow(s1, 2)))) /
                                 pow((s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))), 2));
 
-                double s1_lambda = sqrt(2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
+                double s1_lambda = 2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
                                     (1 + lambda_polyconvex * pow(s2, 2)) * (pow(s2, 2) + lambda_polyconvex) * pow(s2, 2) * pow(epsilon, 2) + 
                                     pow(1 + lambda_polyconvex * pow(s2, 2), 2) * pow(epsilon, 4)) - 
                                     (1 + lambda_polyconvex * pow(s2, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s2, 2)) - 
                                     pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex)) / 
-                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2)));
-
-                double s2_lambda = sqrt(2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
+                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2));
+                
+                if (s1_lambda < 0) {
+                    s1_lambda = -2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
+                                    (1 + lambda_polyconvex * pow(s2, 2)) * (pow(s2, 2) + lambda_polyconvex) * pow(s2, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda_polyconvex * pow(s2, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda_polyconvex * pow(s2, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s2, 2)) - 
+                                    pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex)) / 
+                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2));
+                }
+                s1_lambda = sqrt(s1_lambda);
+                
+                double s2_lambda = 2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
                                     (1 + lambda_polyconvex * pow(s1, 2)) * (pow(s1, 2) + lambda_polyconvex) * pow(s1, 2) * pow(epsilon, 2) + 
                                     pow(1 + lambda_polyconvex * pow(s1, 2), 2) * pow(epsilon, 4)) - 
                                     (1 + lambda_polyconvex * pow(s1, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s1, 2)) - 
                                     pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex)) / 
-                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2)));
+                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2));
+                
+                if (s2_lambda < 0) {
+                    s2_lambda = -2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
+                                    (1 + lambda_polyconvex * pow(s1, 2)) * (pow(s1, 2) + lambda_polyconvex) * pow(s1, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda_polyconvex * pow(s1, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda_polyconvex * pow(s1, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s1, 2)) - 
+                                    pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex)) / 
+                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2));
+                }
+                s1_lambda = sqrt(s1_lambda);
 
+                double result_1 = s1_g / (2 * (s1 - s1_lambda));
+                if (std::signbit(s1_g) != std::signbit(s1 - s1_lambda)) {
+                    result_1 = -result_1;
+                }
+                double result_2 = s2_g / (2 * (s2 - s2_lambda));
+                if (std::signbit(s2_g) != std::signbit(s2 - s2_lambda)) {
+                    result_2 = -result_2;
+                }
                 m_sing_new << sqrt(s1_g / (2 * (s1 - s1_lambda))), sqrt(s2_g / (2 * (s2 - s2_lambda)));
+                std::cout << "m_sing_new: " << m_sing_new << std::endl;
+                std::cout << "s1_lambda: " << s1_lambda << std::endl;
+                std::cout << "s2_lambda: " << s2_lambda << std::endl;
+                std::cout << "s1_g: " << s1_g << std::endl;
+                std::cout << "s2_g: " << s2_g << std::endl;
+                std::cout << "s1: " << s1 << std::endl;
+                std::cout << "s2: " << s2 << std::endl;
+                std::cout << sqrt(4) << std::endl;
 
                 // Replacing the closest rotation R with another matrix Λ, which depends on the energy
                 closest_sing_vec << s1_lambda, s2_lambda;
@@ -537,6 +573,8 @@ void TrianglesMapping::least_squares() {
     // std::cout << "uv: " << std::endl << uv << std::endl;
 
     distance = uv - V_1.block(0, 0, V_1.rows(), 2);
+    //std::cout << "Distance:" << std::endl << distance << std::endl;
+    // std::cout << "UV:" << std::endl << uv << std::endl;
 
 	// Use an iterative solver
 	/*Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver; // ConjugateGradient solver for symmetric positive definite matrices
@@ -755,7 +793,6 @@ double TrianglesMapping::add_energies_jacobians(Eigen::MatrixXd& V_new, bool fli
             else if (strcmp(energy, "UNTANGLE-2D") == 0) {
                 mini_energy = 2 * ((pow(s1, 2) + pow(s2, 2)) / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))) + 
                                 lambda_polyconvex * (pow(s1, 2) * pow(s2, 2) + 1) / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))));
-                
                 energy_sum += M(i) * mini_energy;
             }
 		} else {
@@ -872,7 +909,7 @@ double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd
     double c2 = 0.9; // 0.99
     std::cout << "lineSearch: " << std::endl;
     double alphaMax;
-    if (!strcmp(energy, "UNTANGLE-2D") == 0) {
+    if (strcmp(energy, "UNTANGLE-2D") != 0) {
         alphaMax = step_singularities(F, xk_current, dk_current);
     }
     else {
@@ -1035,6 +1072,7 @@ void TrianglesMapping::nextStep(Triangles& map) {
 
     // energumene = igl::flip_avoiding_line_search(F, uv_old, uv, compute_energy, ener * mesh_area) / mesh_area;
     std::cout << "Energy: " << energumene << std::endl;
+    std::cout << "Alpha: " << alpha << std::endl;
 	// Update the solution xk
 	// xk = xk_1 + alpha * dk;
 
@@ -1047,6 +1085,8 @@ void TrianglesMapping::nextStep(Triangles& map) {
     }
 
     E_previous = energumene;
+
+    std::cout << "eps: " << epsilon << std::endl;
 
 	/*for (auto v : map.iter_vertices()) {
 		v.pos()[0] = uv_old(int(v), 0);
