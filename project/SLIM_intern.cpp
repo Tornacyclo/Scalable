@@ -328,7 +328,39 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                 ri = ui * closest_sing_vec.asDiagonal() * vi.transpose();
             }
             else if (strcmp(energy, "UNTANGLE-2D") == 0) {
-                //
+                double s1_g = 2 * (2 * s1 / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))) -
+                                ((pow(s1, 2) + pow(s2, 2)) * (s2 + (s1 * pow(s2, 2)) / sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2)))) /
+                                pow((s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))), 2) +
+                                lambda * (2 * s1 * pow(s2, 2) / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))) -
+                                (pow(s1, 2) * pow(s2, 2) + 1) * (s2 + (s1 * pow(s2, 2)) / sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2)))) /
+                                pow((s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))), 2));
+
+                double s2_g = 2 * (2 * s2 / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))) -
+                                ((pow(s2, 2) + pow(s1, 2)) * (s1 + (s2 * pow(s1, 2)) / sqrt(pow(epsilon, 2) + pow(s2, 2) * pow(s1, 2)))) /
+                                pow((s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))), 2) +
+                                lambda * (2 * s2 * pow(s1, 2) / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))) -
+                                (pow(s2, 2) * pow(s1, 2) + 1) * (s1 + (s2 * pow(s1, 2)) / sqrt(pow(epsilon, 2) + pow(s2, 2) * pow(s1, 2)))) /
+                                pow((s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))), 2));
+
+                double s1_lambda = sqrt(2 * (1 + lambda * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda, 2) * pow(s2, 4) - 
+                                    (1 + lambda * pow(s2, 2)) * (pow(s2, 2) + lambda) * pow(s2, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda * pow(s2, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda * pow(s2, 2)) * (2 * pow(epsilon, 2) * (1 + lambda * pow(s2, 2)) - 
+                                    pow(s2, 2) * (pow(s2, 2) + lambda))) / 
+                                    (3 * pow(s2, 2) * pow(1 + lambda * pow(s2, 2), 2)));
+
+                double s2_lambda = sqrt(2 * (1 + lambda * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda, 2) * pow(s1, 4) - 
+                                    (1 + lambda * pow(s1, 2)) * (pow(s1, 2) + lambda) * pow(s1, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda * pow(s1, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda * pow(s1, 2)) * (2 * pow(epsilon, 2) * (1 + lambda * pow(s1, 2)) - 
+                                    pow(s1, 2) * (pow(s1, 2) + lambda))) / 
+                                    (3 * pow(s1, 2) * pow(1 + lambda * pow(s1, 2), 2)));
+
+                m_sing_new << sqrt(s1_g / (2 * (s1 - s1_lambda))), sqrt(s2_g / (2 * (s2 - s2_lambda)));
+
+                // Replacing the closest rotation R with another matrix Λ, which depends on the energy
+                closest_sing_vec << s1_lambda, s2_lambda;
+                ri = ui * closest_sing_vec.asDiagonal() * vi.transpose();
             }
 
             Jac.push_back(ji);
@@ -662,8 +694,10 @@ double TrianglesMapping::add_energies_jacobians(Eigen::MatrixXd& V_new, bool fli
                 energy_sum += M(i) * ((pow(s1, 2) + pow(s2, 2)) / (s1 * s2));
             }
             else if (strcmp(energy, "UNTANGLE-2D") == 0) {
-                mini_energy = (pow(s1, 2) + pow(s2, 2)) / (s1 * s2);
-                energy_sum += M(i) * ((pow(s1, 2) + pow(s2, 2)) / (s1 * s2));
+                mini_energy = 2 * ((pow(s1, 2) + pow(s2, 2)) / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))) + 
+                                lambda * (pow(s1, 2) * pow(s2, 2) + 1) / (s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))));
+                
+                energy_sum += M(i) * mini_energy;
             }
 		} else {
 			if (ui.determinant() * vi.determinant() > 0) {
