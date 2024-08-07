@@ -383,40 +383,86 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                                 (pow(s2, 2) * pow(s1, 2) + 1) * (s1 + (s2 * pow(s1, 2)) / sqrt(pow(epsilon, 2) + pow(s2, 2) * pow(s1, 2)))) /
                                 pow((s1 * s2 + sqrt(pow(epsilon, 2) + pow(s1, 2) * pow(s2, 2))), 2));
 
-                double s1_lambda = 2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
+                double solution1 = sqrt((2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
                                     (1 + lambda_polyconvex * pow(s2, 2)) * (pow(s2, 2) + lambda_polyconvex) * pow(s2, 2) * pow(epsilon, 2) + 
                                     pow(1 + lambda_polyconvex * pow(s2, 2), 2) * pow(epsilon, 4)) - 
                                     (1 + lambda_polyconvex * pow(s2, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s2, 2)) - 
-                                    pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex)) / 
-                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2));
+                                    pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2)));
                 
-                if (s1_lambda < 0) {
-                    s1_lambda = -2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
+                double solution2 = sqrt((-2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
                                     (1 + lambda_polyconvex * pow(s2, 2)) * (pow(s2, 2) + lambda_polyconvex) * pow(s2, 2) * pow(epsilon, 2) + 
                                     pow(1 + lambda_polyconvex * pow(s2, 2), 2) * pow(epsilon, 4)) - 
                                     (1 + lambda_polyconvex * pow(s2, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s2, 2)) - 
-                                    pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex)) / 
-                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2));
-                }
-                s1_lambda = sqrt(s1_lambda);
+                                    pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2)));
                 
-                double s2_lambda = 2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
+                double solution3 = -sqrt((2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
+                                    (1 + lambda_polyconvex * pow(s2, 2)) * (pow(s2, 2) + lambda_polyconvex) * pow(s2, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda_polyconvex * pow(s2, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda_polyconvex * pow(s2, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s2, 2)) - 
+                                    pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2)));
+                
+                double solution4 = -sqrt((-2 * (1 + lambda_polyconvex * pow(s2, 2)) * sqrt(pow(pow(s2, 2) + lambda_polyconvex, 2) * pow(s2, 4) - 
+                                    (1 + lambda_polyconvex * pow(s2, 2)) * (pow(s2, 2) + lambda_polyconvex) * pow(s2, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda_polyconvex * pow(s2, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda_polyconvex * pow(s2, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s2, 2)) - 
+                                    pow(s2, 2) * (pow(s2, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s2, 2) * pow(1 + lambda_polyconvex * pow(s2, 2), 2)));
+                
+                double s1_lambda;
+                std::vector<double> solutions1 = {solution1, solution2, solution3, solution4};
+                solutions1.erase(std::remove_if(solutions1.begin(), solutions1.end(), [](double solution) {return std::isnan(solution);}), solutions1.end());
+                // Check each solution for NaN and use the first non-NaN solution
+                for (const auto& solution : solutions1) {
+                    if (!std::isnan(s1_g / (2 * (s1 - solution)))) {
+                        s1_lambda = solution;
+                        break;
+                    }
+                }
+                s1_lambda = solution1;
+                
+                solution1 = sqrt((2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
                                     (1 + lambda_polyconvex * pow(s1, 2)) * (pow(s1, 2) + lambda_polyconvex) * pow(s1, 2) * pow(epsilon, 2) + 
                                     pow(1 + lambda_polyconvex * pow(s1, 2), 2) * pow(epsilon, 4)) - 
                                     (1 + lambda_polyconvex * pow(s1, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s1, 2)) - 
-                                    pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex)) / 
-                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2));
+                                    pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2)));
                 
-                if (s2_lambda < 0) {
-                    s2_lambda = -2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
+                solution2 = sqrt((-2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
                                     (1 + lambda_polyconvex * pow(s1, 2)) * (pow(s1, 2) + lambda_polyconvex) * pow(s1, 2) * pow(epsilon, 2) + 
                                     pow(1 + lambda_polyconvex * pow(s1, 2), 2) * pow(epsilon, 4)) - 
                                     (1 + lambda_polyconvex * pow(s1, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s1, 2)) - 
-                                    pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex)) / 
-                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2));
+                                    pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2)));
+                
+                solution3 = -sqrt((2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
+                                    (1 + lambda_polyconvex * pow(s1, 2)) * (pow(s1, 2) + lambda_polyconvex) * pow(s1, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda_polyconvex * pow(s1, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda_polyconvex * pow(s1, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s1, 2)) - 
+                                    pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2)));
+                
+                solution4 = -sqrt((-2 * (1 + lambda_polyconvex * pow(s1, 2)) * sqrt(pow(pow(s1, 2) + lambda_polyconvex, 2) * pow(s1, 4) - 
+                                    (1 + lambda_polyconvex * pow(s1, 2)) * (pow(s1, 2) + lambda_polyconvex) * pow(s1, 2) * pow(epsilon, 2) + 
+                                    pow(1 + lambda_polyconvex * pow(s1, 2), 2) * pow(epsilon, 4)) - 
+                                    (1 + lambda_polyconvex * pow(s1, 2)) * (2 * pow(epsilon, 2) * (1 + lambda_polyconvex * pow(s1, 2)) - 
+                                    pow(s1, 2) * (pow(s1, 2) + lambda_polyconvex))) / 
+                                    (3 * pow(s1, 2) * pow(1 + lambda_polyconvex * pow(s1, 2), 2)));
+                
+                double s2_lambda;
+                std::vector<double> solutions2 = {solution1, solution2, solution3, solution4};
+                solutions2.erase(std::remove_if(solutions2.begin(), solutions2.end(), [](double solution) {return std::isnan(solution);}), solutions2.end());
+                // Check each solution for NaN and use the first non-NaN solution
+                for (const auto& solution : solutions2) {
+                    if (!std::isnan(s2_g / (2 * (s2 - solution)))) {
+                        s2_lambda = solution;
+                        break;
+                    }
                 }
-                s1_lambda = sqrt(s1_lambda);
-
+                s2_lambda = solution1;
+                
                 double result_1 = s1_g / (2 * (s1 - s1_lambda));
                 if (std::signbit(s1_g) != std::signbit(s1 - s1_lambda)) {
                     result_1 = -result_1;
@@ -426,18 +472,25 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                     result_2 = -result_2;
                 }
                 m_sing_new << sqrt(s1_g / (2 * (s1 - s1_lambda))), sqrt(s2_g / (2 * (s2 - s2_lambda)));
-                std::cout << "m_sing_new: " << m_sing_new << std::endl;
-                std::cout << "s1_lambda: " << s1_lambda << std::endl;
+                /*std::cout << "s1_lambda: " << s1_lambda << std::endl;
                 std::cout << "s2_lambda: " << s2_lambda << std::endl;
                 std::cout << "s1_g: " << s1_g << std::endl;
                 std::cout << "s2_g: " << s2_g << std::endl;
                 std::cout << "s1: " << s1 << std::endl;
-                std::cout << "s2: " << s2 << std::endl;
-                std::cout << sqrt(4) << std::endl;
+                std::cout << "s2: " << s2 << std::endl;*/
 
                 // Replacing the closest rotation R with another matrix Λ, which depends on the energy
                 closest_sing_vec << s1_lambda, s2_lambda;
                 ri = ui * closest_sing_vec.asDiagonal() * vi.transpose();
+
+                if (!std::isnan(s1_g / (2 * (s1 - s1_lambda)))) {
+                    std::cout << "s1_g: " << s1_g << std::endl;
+                    m_sing_new(0) = 1;
+                }
+                if (!std::isnan(s2_g / (2 * (s2 - s2_lambda)))) {
+                    std::cout << "s2_g: " << s2_g << std::endl;
+                    m_sing_new(1) = 1;
+                }
             }
 
             Jac.push_back(ji);
