@@ -1810,7 +1810,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
             timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
             timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "|" << alpha << "|" << energumene;
             if (strcmp(energy, "UNTANGLE-2D") == 0) {
-                timeFile << "|" << epsilon << "|" << lambda_polyconvex << "\n";
+                timeFile << "|" << epsilon << "|" << lambda_polyconvex << "|" << number_inverted << "\n";
             }
             else {
                 timeFile << "\n";
