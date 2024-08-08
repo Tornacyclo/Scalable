@@ -1662,7 +1662,7 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     }
 
     double minEnergy = 0.0;
-    double maxEnergy = 0.0;
+    double maxEnergy = 1.0;
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     totalTime += duration; // Accumulate total time
