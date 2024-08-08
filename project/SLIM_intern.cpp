@@ -1656,7 +1656,7 @@ void TrianglesMapping::Tutte1963(const char* name, int weights) {
 
     if (sanity_check) {
         int point1 = *plane.begin();
-        int point2 = *plane.end();
+        int point2 = *plane.begin()+1;
 
         // Swap the values
         auto x = V_1(point1, 0);
