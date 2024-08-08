@@ -27,6 +27,8 @@
 #include <igl/boundary_loop.h>
 #include <igl/map_vertices_to_circle.h>
 
+#include <random>
+
 
 
 #ifdef linux
@@ -99,7 +101,7 @@ private:
     Eigen::VectorXd mass;
     double weight_option = 1.0;
     double exponential_factor_1 = 1e-3;
-    double exponential_factor_2 = 1;
+    double exponential_factor_2 = 1e-1;
     Eigen::VectorXd rhs;
     double alpha;
     Eigen::VectorXd M;
@@ -107,11 +109,12 @@ private:
     double energumene;
     double E_previous = -1;
     double lambda_polyconvex = 1;
-    double epsilon = 1;
+    double epsilon = 0.5;
     double minimum_determinant;
     int number_inverted;
     int dimension = 2;
     const char* energy;
+    const char* initialization;
     int max_iterations;
     
     std::chrono::high_resolution_clock::time_point totalStart;
@@ -124,7 +127,7 @@ private:
     void reference_mesh(Triangles& map);
     void bound_vertices_circle_normalized(Triangles& map);
     void map_vertices_to_circle_area_normalized(Triangles& map, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXi& bnd, Eigen::MatrixXd& UV);
-    void Tut63(const char* name, int weights);
+    void Tutte1963(const char* name, int weights);
     void jacobian_rotation_area(Triangles& map, bool lineSearch);
     void least_squares();
     void updateUV(Triangles& map, const Eigen::VectorXd& xk);

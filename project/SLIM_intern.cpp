@@ -23,6 +23,9 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
                 else if (strncmp(avariable[i], "max_iterations=", 15) == 0) {
                     max_iterations = atoi(avariable[i] + 15);
                 }
+                else if (strncmp(avariable[i], "epsilon=", 8) == 0) {
+                    epsilon = atof(avariable[i] + 8);
+                }
                 else {
                     name = avariable[i];
                 }
@@ -37,6 +40,10 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
         #ifdef linux
             name = "project/mesh_test/hemisphere.obj";
         #endif
+    }
+
+    if (initialization == nullptr) {
+        initialization = "tutte";
     }
 
     if (energy == nullptr) {
@@ -55,8 +62,9 @@ TrianglesMapping::TrianglesMapping(const int acount, char** avariable) {
     std::cout << "Energy: " << energy << std::endl;
     std::cout << "Weights: " << weights << std::endl;
     std::cout << "Max Iterations: " << max_iterations << std::endl;
+    std::cout << "Epsilon: " << epsilon << std::endl;
 
-    Tut63(name, weights);
+    Tutte1963(name, weights);
 }
 
 Eigen::MatrixXd TrianglesMapping::getEigenMap() const {
@@ -484,11 +492,11 @@ void TrianglesMapping::jacobian_rotation_area(Triangles& map, bool lineSearch) {
                 ri = ui * closest_sing_vec.asDiagonal() * vi.transpose();
 
                 if (!std::isnan(s1_g / (2 * (s1 - s1_lambda)))) {
-                    std::cout << "s1_g: " << s1_g << std::endl;
+                    // std::cout << "s1_g: " << s1_g << std::endl;
                     m_sing_new(0) = 1;
                 }
                 if (!std::isnan(s2_g / (2 * (s2 - s2_lambda)))) {
-                    std::cout << "s2_g: " << s2_g << std::endl;
+                    // std::cout << "s2_g: " << s2_g << std::endl;
                     m_sing_new(1) = 1;
                 }
             }
@@ -986,7 +994,8 @@ double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd
     // Eigen::MatrixXd V_dk = dk_current;
     double ener, new_ener;
     double current_energy;
-    ener = add_energies_jacobians(V_old, true) * mesh_area;
+    // ener = add_energies_jacobians(V_old, true) * mesh_area;
+    ener = add_energies_jacobians(V_old, true);
     new_ener = ener;
 
     // Compute gradient of xk_current
@@ -1073,7 +1082,8 @@ double TrianglesMapping::lineSearch(Eigen::MatrixXd& xk_current, Eigen::MatrixXd
         iter++;
     }
 
-    energumene = new_ener / mesh_area;
+    // energumene = new_ener / mesh_area;
+    energumene = new_ener;
     std::cout << "Energy v_1: " << energumene << std::endl;
     V_1 = V_old;
     return alphaBisectionMethod;
@@ -1207,7 +1217,7 @@ void TrianglesMapping::map_vertices_to_circle_area_normalized(Triangles& map, co
     }
 }
 
-void TrianglesMapping::Tut63(const char* name, int weights) {
+void TrianglesMapping::Tutte1963(const char* name, int weights) {
     std::filesystem::path filepath = name;
     std::string filepath_str_ext = filepath.extension().string();
     std::string filepath_str_stem = filepath.stem().string();
@@ -1218,6 +1228,9 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
     char method[20] = "_barycentre";
     char weight1[20] = "_uniform";
     char weight2[20] = "_cotan";
+    char weight3[20] = "_random";
+    char weight4[20] = "_sanity_check";
+    bool sanity_check = false;
     // char attribute[20] = "_distortion";
 
     // Create directory if it doesn't exist
@@ -1241,6 +1254,12 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
         strcat(output_name_geo, weight1);
     } else if (weights == 2) {
         strcat(output_name_geo, weight2);
+    } else if (weights == 3) {
+        strcat(output_name_geo, weight3);
+    } else if (weights == 4) {
+        strcat(output_name_geo, weight4);
+        sanity_check = true;
+        weights = 1;
     }
     strcpy(output_name_obj, output_name_geo);
     // strcat(output_name, attribute);
@@ -1517,6 +1536,42 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
                         A_II_A_BB.insert(ree + fixed, re_ne + fixed) = val / (2 * voronoi);
                     }
                 }
+            } else if (weights == 3) {
+                std::map<int, double> cotan;
+                std::random_device rd; // Obtain a random number from hardware
+                std::mt19937 gen(rd()); // Seed the generator
+                std::uniform_int_distribution<> distr(1, 5);
+                int random_number = distr(gen);
+                if (depart.opposite().active())
+                    variable = variable.opposite().next();
+                neighbors.push_back(depart.to());
+                cotan.insert(std::make_pair(neighbors.back(), random_number));
+                count += random_number;
+                while (depart != variable && variable.active()) {
+                    int random_number_G = distr(gen);
+                    neighbors.push_back(variable.to());
+                    cotan.insert(std::make_pair(neighbors.back(), random_number_G));
+                    count += random_number_G;
+                    if (!variable.opposite().active())
+                        break;
+                    variable = variable.opposite().next();
+                }
+
+                int ree = x_I_(i);
+                A_II.insert(ree, ree) = -count;
+                A_II_A_BB.insert(ree + fixed, ree + fixed) = -count;
+
+                for (auto const& [key, val] : cotan) {
+                    if (blade.contains(key)) {
+                        int re_ne2 = x_B_(key);
+                        A_IB.insert(ree, re_ne2) = val;
+                        A_II_A_BB.insert(ree + fixed, re_ne2) = val;
+                    } else {
+                        int re_ne = x_I_(key);
+                        A_II.insert(ree, re_ne) = val;
+                        A_II_A_BB.insert(ree + fixed, re_ne + fixed) = val;
+                    }
+                }
             }
         }
         vert++;
@@ -1597,6 +1652,25 @@ void TrianglesMapping::Tut63(const char* name, int weights) {
         V_1(plan, 0) = x_I_full(re + fixed, 0);
         V_1(plan, 1) = x_I_full(re + fixed, 1);
         V_1(plan, 2) = seaLevel;
+    }
+
+    if (sanity_check) {
+        int point1 = *plane.begin();
+        int point2 = *plane.end();
+
+        // Swap the values
+        auto x = V_1(point1, 0);
+        auto y = V_1(point1, 1);
+
+        V_1(point1, 0) = V_1(point2, 0);
+        V_1(point1, 1) = V_1(point2, 1);
+        V_1(point2, 0) = x;
+        V_1(point2, 1) = y;
+
+        mTut.points[point1][0] = V_1(point1, 0);
+        mTut.points[point1][1] = V_1(point1, 1);
+        mTut.points[point2][0] = V_1(point2, 0);
+        mTut.points[point2][1] = V_1(point2, 1);
     }
 
     for (int blad : blade) {
