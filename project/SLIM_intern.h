@@ -121,6 +121,7 @@ private:
     long long totalTime;
 
     double calculateTriangleArea(const vec3& v0, const vec3& v1, const vec3& v2);
+    double unsignedArea(const vec3 &A, const vec3 &B, const vec3 &C);
     double calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3);
     double triangle_area_2d(const vec2& v0, const vec2& v1, const vec2& v2);
     double triangle_aspect_ratio_2d(const vec2& v0, const vec2& v1, const vec2& v2);

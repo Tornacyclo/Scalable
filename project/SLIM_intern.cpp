@@ -83,6 +83,10 @@ double TrianglesMapping::calculateTriangleArea(const vec3& v0, const vec3& v1, c
     return area;
 }
 
+double TrianglesMapping::unsignedArea(const vec3 &A, const vec3 &B, const vec3 &C) {
+    return 0.5*cross(B-A, C-A).norm();
+}
+
 double TrianglesMapping::calculateCotan(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& v3) {
     vec3 v = v0 - v1;
     vec3 w = v2 - v3;
@@ -1162,7 +1166,7 @@ void TrianglesMapping::bound_vertices_circle_normalized(Triangles& map) {
     double area_b = 0;
     for (auto f : map.iter_facets()) {
         // area_b += calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
-        area_b += unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        area_b += unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
     }
     double radius = sqrt(area_b / (M_PI));
 
@@ -1306,7 +1310,7 @@ void TrianglesMapping::Tutte1963(const char* name, int weights) {
     for (auto f : mOri.iter_facets()) {
         // Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
         // Af(ind, ind) = area[int(f)];
-        Af(ind, ind) = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        Af(ind, ind) = unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
         ind++;
     }
 
@@ -1706,7 +1710,7 @@ void TrianglesMapping::Tutte1963(const char* name, int weights) {
     FacetAttribute<double> fa2(mOri);
     for (auto f : mOri.iter_facets()) {
         // double area = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
-        double area = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
+        double area = unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
         fa2[f] = area;
         fOriMap[int(f)] = area;
     }
@@ -1722,12 +1726,12 @@ void TrianglesMapping::Tutte1963(const char* name, int weights) {
 
     Surface::Facet f(mTut, 0);
     // double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
-    double minArea = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
+    double minArea = unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
     double maxArea = minArea;
     FacetAttribute<double> fa(mTut);
     for (auto f : mTut.iter_facets()) {
         // fa[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
-        fa[f] = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
+        fa[f] = unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fa2[f];
         if (fa[f] < minArea) {
             minArea = fa[f];
         } else if (fa[f] > maxArea) {
@@ -1845,12 +1849,12 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
 
         Surface::Facet f(mLocGlo, 0);
         // double minArea = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
-        double minArea = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
+        double minArea = unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[0];
         double maxArea = minArea;
         FacetAttribute<double> fa_a(mLocGlo);
         for (auto f : mLocGlo.iter_facets()) {
             // fa_a[f] = calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
-            fa_a[f] = unsigned_area(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
+            fa_a[f] = unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()) / fOriMap[int(f)];
             if (fa_a[f] < minArea) {
                 minArea = fa_a[f];
             } else if (fa_a[f] > maxArea) {
