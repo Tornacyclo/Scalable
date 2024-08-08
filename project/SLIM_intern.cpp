@@ -1747,7 +1747,7 @@ void TrianglesMapping::Tutte1963(const char* name, int weights) {
     auto totalEnd = std::chrono::high_resolution_clock::now();
     auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
     if (timeFile.is_open()) {
-        timeFile << totalDuration << "|"; // Log total time
+        timeFile << totalTime << "|"; // Log total time
         timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
         timeFile << mTut.nverts() << "|" << mTut.nfacets() << "|" << mTut.ncorners() << "\n";
     }
@@ -1880,7 +1880,7 @@ void TrianglesMapping::LocalGlobalParametrization(const char* map) {
         auto totalEnd = std::chrono::high_resolution_clock::now();
         auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(totalEnd - totalStart).count();
         if (timeFile.is_open()) {
-            timeFile << totalDuration << "|"; // Log total time
+            timeFile << totalTime << "|"; // Log total time
             timeFile << minArea << "|" << maxArea << "|" << minEnergy << "|" << maxEnergy << "|"; // Log min/max area and distortion
             timeFile << mLocGlo.nverts() << "|" << mLocGlo.nfacets() << "|" << mLocGlo.ncorners() << "|" << alpha << "|" << energumene;
             if (strcmp(energy, "UNTANGLE-2D") == 0) {
