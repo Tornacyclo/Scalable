@@ -1287,6 +1287,8 @@ void TrianglesMapping::Tutte1963(const char* name, int weights) {
     double maxH = mTut.points[0][1];
     double minH = mTut.points[0][1];
     int nverts = mTut.nverts();
+    int nfacets = mTut.nfacets();
+    int ncorners = mTut.ncorners();
     for (int i = 0; i < mTut.nverts(); i++) {
         if (mTut.points[i][1] < minH) {
             minH = mTut.points[i][1];
@@ -1298,21 +1300,21 @@ void TrianglesMapping::Tutte1963(const char* name, int weights) {
     double margin = 1.0 / nverts * 100;
     double dcuttingSurface = (maxH - minH) * margin;
 
-    DBOUT("The number of vertices is: " << mTut.nverts() << ", facets: " << mTut.nfacets() << ", corners: " << mTut.ncorners() << std::endl);
+    DBOUT("The number of vertices is: " << nverts << ", facets: " << nfacets << ", corners: " << ncorners << std::endl);
 
     mOri.connect();
     mTut.connect();
 
     // reference_mesh(mOri);
 
-    int ind = 0;
-    Af = Eigen::MatrixXd::Zero(mOri.nfacets(), mOri.nfacets());
+    /*int ind = 0;
+    Af = Eigen::MatrixXd::Zero(nfacets, nfacets);
     for (auto f : mOri.iter_facets()) {
         // Af(ind, ind) = std::sqrt(calculateTriangleArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos()));
         // Af(ind, ind) = area[int(f)];
         Af(ind, ind) = unsignedArea(f.vertex(0).pos(), f.vertex(1).pos(), f.vertex(2).pos());
         ind++;
-    }
+    }*/
 
     igl::read_triangle_mesh(name, V, F);
     igl::doublearea(V, F, M);
